@@ -1,0 +1,11 @@
+Model Information:
+* title:	Halo Reach - Cybernetic Arm
+* source:	https://sketchfab.com/3d-models/halo-reach-cybernetic-arm-c7c9b5e36e114f4084e2380d2dd08187
+* author:	McCarthy3D (https://sketchfab.com/joshuawatt811)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Halo Reach - Cybernetic Arm" (https://sketchfab.com/3d-models/halo-reach-cybernetic-arm-c7c9b5e36e114f4084e2380d2dd08187) by McCarthy3D (https://sketchfab.com/joshuawatt811) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

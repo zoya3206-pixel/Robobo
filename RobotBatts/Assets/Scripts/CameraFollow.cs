@@ -14,9 +14,9 @@ public class CameraFollow : MonoBehaviour
         if (Follower != null && MainCamera != null)
         {
             Vector3 targetPosition = new Vector3(
-                MainCamera.transform.position.x + 2.1197f,
-                MainCamera.transform.position.y - 8.27f,
-                MainCamera.transform.position.z + 0.7024078f
+                MainCamera.transform.position.x,
+                MainCamera.transform.position.y + 3.83f,
+                MainCamera.transform.position.z
             );
 
             // Плавное перемещение

@@ -46,12 +46,32 @@ public class RobotArmPunchController : MonoBehaviour
         {
             RightArmPunching();
             RightArmUnPunching();
-
         }
         if (IsLeftArmPunching)
         {
             LeftArmPunching();
             LeftArmUnPunching();
+        }
+    }
+
+    private void OnTriggerEnter(Collider other)
+    {
+        // Проверяем тег контроллера
+        if (other.CompareTag("LeftController"))
+        {
+            // Проверяем, чтобы этот скрипт был на объекте с тегом "Hit"
+            if (gameObject.CompareTag("Hit") && !IsLeftArmPunching)
+            {
+                IsLeftArmPunching = true;
+            }
+        }
+        else if (other.CompareTag("RightController"))
+        {
+            // Проверяем, чтобы этот скрипт был на объекте с тегом "Hit"
+            if (gameObject.CompareTag("Hit") && !IsRightArmPunching)
+            {
+                IsRightArmPunching = true;
+            }
         }
     }
 
@@ -74,7 +94,6 @@ public class RobotArmPunchController : MonoBehaviour
             RightBicep.localPosition = m_bicep_hit_pos;
             Invoke("CanUnPunchingRight", 2f);
         }
-
     }
 
     private void RightArmUnPunching()
@@ -96,7 +115,6 @@ public class RobotArmPunchController : MonoBehaviour
             m_rcan_unpunching = false;
             IsRightArmPunching = false;
         }
-
     }
 
     private void LeftArmPunching()
@@ -118,7 +136,6 @@ public class RobotArmPunchController : MonoBehaviour
             LeftBicep.localPosition = m_bicep_hit_pos;
             Invoke("CanUnPunchingLeft", 2f);
         }
-
     }
 
     private void LeftArmUnPunching()
@@ -140,7 +157,6 @@ public class RobotArmPunchController : MonoBehaviour
             m_lcan_unpunching = false;
             IsLeftArmPunching = false;
         }
-
     }
 
     private void CanUnPunchingLeft()

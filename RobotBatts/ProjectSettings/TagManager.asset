@@ -5,6 +5,9 @@ TagManager:
   serializedVersion: 2
   tags:
   - Hit
+  - Controller
+  - LeftController
+  - RightController
   layers:
   - Default
   - TransparentFX

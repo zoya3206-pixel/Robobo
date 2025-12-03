@@ -1,183 +1,157 @@
 using System.Collections;
 using UnityEngine;
 
-public class RobotArmPunch : MonoBehaviour
+public class RobotArmPunchController : MonoBehaviour
 {
-    [System.Serializable]
-    public class ArmJoints
+    [Header("Robot Arm References")]
+    [SerializeField] public Transform LeftBicep;
+    [SerializeField] public Transform LeftForearm;
+    [SerializeField] public Transform RightBicep;
+    [SerializeField] public Transform RightForearm;
+
+    public bool IsLeftArmPunching = false;
+    public bool IsRightArmPunching = false;
+
+    private Vector3 m_forearm_idle_pos;
+    private Quaternion m_forearm_idle_rot;
+    private Vector3 m_forearm_hit_pos;
+    private Quaternion m_forearm_hit_rot;
+
+    private Vector3 m_bicep_idle_pos;
+    private Quaternion m_bicep_idle_rot;
+    private Quaternion m_bicep_hit_rot;
+    private Vector3 m_bicep_hit_pos;
+
+    private bool m_rcan_unpunching = false;
+    private bool m_lcan_unpunching = false;
+
+    private float m_rtime_count = 0.0f;
+    private float m_ltime_count = 0.0f;
+
+    private void Start()
     {
-        public Transform shoulder;  // Плечо
-        public Transform elbow;     // Локоть
-        public Transform wrist;     // Кисть
-        [HideInInspector] public Vector3 initialShoulderPos;
-        [HideInInspector] public Vector3 initialElbowPos;
-        [HideInInspector] public Vector3 initialWristPos;
+        m_forearm_idle_pos = new Vector3(62.1899986f, 71.6900024f, -62.5f);
+        m_forearm_idle_rot = new Quaternion(0.579913378f, -0.31349498f, 0.193250179f, 0.726688325f);
+        m_forearm_hit_pos = new Vector3(58.6199989f, 60.4700012f, -59.7599983f);
+        m_forearm_hit_rot = new Quaternion(0.428557694f, -0.226369068f, 0.233641773f, 0.842915714f);
+        m_bicep_idle_pos = new Vector3(19.4599991f, 13.1038933f, -34.9103317f);
+        m_bicep_idle_rot = new Quaternion(0.234761238f, -0.217837095f, 0.054071188f, 0.945785642f);
+        m_bicep_hit_pos = new Vector3(19.4599991f, 30.5494537f, -68.1299973f);
+        m_bicep_hit_rot = new Quaternion(0.402451813f, -0.22403188f, 0.0136534264f, 0.887499809f);
     }
 
-    [Header("Части рук робота")]
-    public ArmJoints leftArm;
-    public ArmJoints rightArm;
-
-    [Header("Настройки удара")]
-    public float punchDelay = 0.3f;        // Задержка после триггера
-    public float punchSpeed = 2f;          // Скорость удара (постоянная)
-    public float punchDistance = 1.5f;     // Дистанция удара
-    public float returnSpeed = 1f;         // Скорость возврата
-
-    [Header("Цели для удара (опционально)")]
-    public Transform leftPunchTarget;
-    public Transform rightPunchTarget;
-
-    private bool leftArmPunching = false;
-    private bool rightArmPunching = false;
-    private Coroutine leftPunchCoroutine;
-    private Coroutine rightPunchCoroutine;
-
-    void Start()
+    private void Update()
     {
-        // Сохраняем начальные позиции
-        SaveInitialPositions(leftArm);
-        SaveInitialPositions(rightArm);
-    }
-
-    void SaveInitialPositions(ArmJoints arm)
-    {
-        arm.initialShoulderPos = arm.shoulder.localPosition;
-        arm.initialElbowPos = arm.elbow.localPosition;
-        arm.initialWristPos = arm.wrist.localPosition;
-    }
-
-    // Вызывается из триггера на руках игрока
-    public void TriggerPunch(bool isLeftHand)
-    {
-        if (isLeftHand && !leftArmPunching)
+        if (IsRightArmPunching)
         {
-            if (leftPunchCoroutine != null)
-                StopCoroutine(leftPunchCoroutine);
-            leftPunchCoroutine = StartCoroutine(PerformPunchSequence(leftArm, true));
+            RightArmPunching();
+            RightArmUnPunching();
+
         }
-        else if (!isLeftHand && !rightArmPunching)
+        if (IsLeftArmPunching)
         {
-            if (rightPunchCoroutine != null)
-                StopCoroutine(rightPunchCoroutine);
-            rightPunchCoroutine = StartCoroutine(PerformPunchSequence(rightArm, false));
+            LeftArmPunching();
+            LeftArmUnPunching();
         }
     }
 
-    IEnumerator PerformPunchSequence(ArmJoints arm, bool isLeft)
+    private void RightArmPunching()
     {
-        if (isLeft) leftArmPunching = true;
-        else rightArmPunching = true;
+        if (m_rcan_unpunching) return;
 
-        // Задержка перед ударом
-        yield return new WaitForSeconds(punchDelay);
+        RightForearm.localPosition += (m_forearm_hit_pos - RightForearm.localPosition);
+        RightForearm.localRotation = Quaternion.Slerp(RightForearm.localRotation, m_forearm_hit_rot, m_rtime_count);
 
-        // Выполняем удар
-        yield return StartCoroutine(PerformPunch(arm, isLeft));
+        RightBicep.localPosition += (m_bicep_hit_pos - RightBicep.localPosition) * Time.deltaTime * 4;
+        RightBicep.localRotation = Quaternion.Slerp(RightBicep.localRotation, m_bicep_hit_rot, m_rtime_count);
 
-        // Возвращаем руку
-        yield return StartCoroutine(ReturnArm(arm));
+        m_rtime_count = m_rtime_count + Time.deltaTime;
 
-        if (isLeft) leftArmPunching = false;
-        else rightArmPunching = false;
-    }
-
-    IEnumerator PerformPunch(ArmJoints arm, bool isLeft)
-    {
-        Vector3 targetPosition = GetPunchTargetPosition(isLeft);
-        float distance = 0f;
-        float maxDistance = Vector3.Distance(arm.wrist.position, targetPosition);
-
-        while (distance < maxDistance)
+        if (RightForearm.localPosition == m_forearm_hit_pos &&
+            RightForearm.localRotation == m_forearm_hit_rot &&
+            RightBicep.localRotation == m_bicep_hit_rot)
         {
-            distance += punchSpeed * Time.deltaTime;
-            float t = distance / maxDistance;
-
-            // Двигаем все части руки к цели удара
-            MoveArmToTarget(arm, targetPosition, t);
-
-            yield return null;
-        }
-    }
-
-    IEnumerator ReturnArm(ArmJoints arm)
-    {
-        float t = 1f;
-
-        while (t > 0f)
-        {
-            t -= returnSpeed * Time.deltaTime;
-            t = Mathf.Clamp01(t);
-
-            // Возвращаем руку в исходное положение
-            ReturnArmToInitial(arm, t);
-
-            yield return null;
+            RightBicep.localPosition = m_bicep_hit_pos;
+            Invoke("CanUnPunchingRight", 2f);
         }
 
-        // Гарантируем точное возвращение
-        ReturnArmToInitial(arm, 0f);
     }
 
-    Vector3 GetPunchTargetPosition(bool isLeft)
+    private void RightArmUnPunching()
     {
-        // Если заданы цели удара - используем их
-        if (isLeft && leftPunchTarget != null)
-            return leftPunchTarget.position;
-        if (!isLeft && rightPunchTarget != null)
-            return rightPunchTarget.position;
+        if (!m_rcan_unpunching) return;
 
-        // Иначе вычисляем цель удара вперед от робота
-        Vector3 forward = transform.forward;
-        Vector3 side = isLeft ? -transform.right : transform.right;
+        RightForearm.localPosition += (m_forearm_idle_pos - RightForearm.localPosition) * Time.deltaTime * 4;
+        RightForearm.localRotation = Quaternion.Slerp(RightForearm.localRotation, m_forearm_idle_rot, m_rtime_count);
 
-        return transform.position + forward * punchDistance + side * 0.5f;
+        RightBicep.localPosition += (m_bicep_idle_pos - RightBicep.localPosition) * Time.deltaTime * 4;
+        RightBicep.localRotation = Quaternion.Slerp(RightBicep.localRotation, m_bicep_idle_rot, m_rtime_count);
+
+        m_rtime_count = m_rtime_count + Time.deltaTime;
+
+        if (RightBicep.localRotation == m_bicep_idle_rot &&
+            RightForearm.localRotation == m_forearm_idle_rot)
+        {
+            m_rtime_count = 0;
+            m_rcan_unpunching = false;
+            IsRightArmPunching = false;
+        }
+
     }
 
-    void MoveArmToTarget(ArmJoints arm, Vector3 target, float t)
+    private void LeftArmPunching()
     {
-        // Простая анимация выпрямления руки
-        // Плечо немного поднимается и поворачивается
-        arm.shoulder.localPosition = Vector3.Lerp(
-            arm.initialShoulderPos,
-            arm.initialShoulderPos + new Vector3(0, 0.1f, 0.1f),
-            t
-        );
+        if (m_lcan_unpunching) return;
 
-        // Локоть выпрямляется
-        arm.elbow.localPosition = Vector3.Lerp(
-            arm.initialElbowPos,
-            arm.initialElbowPos + new Vector3(0, 0.2f, 0.3f),
-            t
-        );
+        LeftForearm.localPosition += (m_forearm_hit_pos - LeftForearm.localPosition);
+        LeftForearm.localRotation = Quaternion.Slerp(LeftForearm.localRotation, m_forearm_hit_rot, m_ltime_count);
 
-        // Кисть достигает цели
-        arm.wrist.position = Vector3.Lerp(arm.wrist.position, target, t);
+        LeftBicep.localPosition += (m_bicep_hit_pos - LeftBicep.localPosition) * Time.deltaTime * 4;
+        LeftBicep.localRotation = Quaternion.Slerp(LeftBicep.localRotation, m_bicep_hit_rot, m_ltime_count);
 
-        // Поворачиваем суставы для естественного движения
-        arm.shoulder.LookAt(target);
-        arm.elbow.LookAt(target);
+        m_ltime_count = m_ltime_count + Time.deltaTime;
+
+        if (LeftForearm.localPosition == m_forearm_hit_pos &&
+            LeftForearm.localRotation == m_forearm_hit_rot &&
+            LeftBicep.localRotation == m_bicep_hit_rot)
+        {
+            LeftBicep.localPosition = m_bicep_hit_pos;
+            Invoke("CanUnPunchingLeft", 2f);
+        }
+
     }
 
-    void ReturnArmToInitial(ArmJoints arm, float t)
+    private void LeftArmUnPunching()
     {
-        // Возвращаем все части в исходное положение
-        arm.shoulder.localPosition = Vector3.Lerp(
-            arm.initialShoulderPos + new Vector3(0, 0.1f, 0.1f),
-            arm.initialShoulderPos,
-            t
-        );
+        if (!m_lcan_unpunching) return;
 
-        arm.elbow.localPosition = Vector3.Lerp(
-            arm.initialElbowPos + new Vector3(0, 0.2f, 0.3f),
-            arm.initialElbowPos,
-            t
-        );
+        LeftForearm.localPosition += (m_forearm_idle_pos - LeftForearm.localPosition) * Time.deltaTime * 4;
+        LeftForearm.localRotation = Quaternion.Slerp(LeftForearm.localRotation, m_forearm_idle_rot, m_ltime_count);
 
-        arm.wrist.localPosition = Vector3.Lerp(
-            arm.wrist.localPosition,
-            arm.initialWristPos,
-            t
-        );
+        LeftBicep.localPosition += (m_bicep_idle_pos - LeftBicep.localPosition) * Time.deltaTime * 4;
+        LeftBicep.localRotation = Quaternion.Slerp(LeftBicep.localRotation, m_bicep_idle_rot, m_ltime_count);
+
+        m_ltime_count = m_ltime_count + Time.deltaTime;
+
+        if (LeftBicep.localRotation == m_bicep_idle_rot &&
+            LeftForearm.localRotation == m_forearm_idle_rot)
+        {
+            m_ltime_count = 0;
+            m_lcan_unpunching = false;
+            IsLeftArmPunching = false;
+        }
+
+    }
+
+    private void CanUnPunchingLeft()
+    {
+        m_lcan_unpunching = true;
+        m_ltime_count = 0;
+    }
+
+    private void CanUnPunchingRight()
+    {
+        m_rcan_unpunching = true;
+        m_rtime_count = 0;
     }
 }

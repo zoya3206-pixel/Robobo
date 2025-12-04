@@ -1237,6 +1237,7 @@ GameObject:
   m_Component:
   - component: {fileID: 263729988}
   - component: {fileID: 263729989}
+  - component: {fileID: 263729990}
   m_Layer: 0
   m_Name: Robot
   m_TagString: Untagged
@@ -1291,6 +1292,26 @@ MonoBehaviour:
   waitTime: 1
   idlePosition: {x: 1.9704001, y: 3.0015998, z: -18.0083}
   ultimatePosition: {x: 1.9704001, y: 7.36, z: -18.0083}
+--- !u!114 &263729990
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 263729987}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b56a0bd909c941f45bb633c43a2d7cfd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  robotTransform: {fileID: 2056199517}
+  leftDodgeAction: {fileID: -631344258065148156, guid: e0ca4504471ca124088e1e2cfe6804ae, type: 3}
+  rightDodgeAction: {fileID: -1644001223835636349, guid: e0ca4504471ca124088e1e2cfe6804ae, type: 3}
+  basePosition: {x: 1.9704001, y: 3.0015998, z: -18.0083}
+  leftDodgePosition: {x: -1.54, y: 3.0015998, z: -18.0083}
+  rightDodgePosition: {x: 4.83, y: 3.0015998, z: -18.0083}
+  dodgeDuration: 0.3
+  cooldown: 5
 --- !u!1001 &285053796
 PrefabInstance:
   m_ObjectHideFlags: 0

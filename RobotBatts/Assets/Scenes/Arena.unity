@@ -1207,8 +1207,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 0.1060922, y: 0.95633125, z: 0.44258833}
-  m_Center: {x: -0.5275612, y: 3.9735527, z: 1.0919964}
+  m_Size: {x: 0.1060922, y: 0.9563308, z: 0.21998143}
+  m_Center: {x: -0.52756125, y: 3.9735527, z: 1.049673}
 --- !u!114 &229896231
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1236,6 +1236,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 263729988}
+  - component: {fileID: 263729989}
   m_Layer: 0
   m_Name: Robot
   m_TagString: Untagged
@@ -1260,6 +1261,36 @@ Transform:
   - {fileID: 385085960}
   m_Father: {fileID: 574813888}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &263729989
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 263729987}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b7aec429ddfef0d4399a52be4f02bd91, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  robotTransform: {fileID: 2056199517}
+  activateUltimateAction:
+    m_UseReference: 1
+    m_Action:
+      m_Name: Activate Ultimate
+      m_Type: 0
+      m_ExpectedControlType: 
+      m_Id: 20ceae82-c5b1-4717-ae4f-9d98945bacde
+      m_Processors: 
+      m_Interactions: 
+      m_SingletonActionBindings: []
+      m_Flags: 0
+    m_Reference: {fileID: 5113088590926889233, guid: e0ca4504471ca124088e1e2cfe6804ae, type: 3}
+  riseTime: 2
+  fallTime: 2
+  waitTime: 1
+  idlePosition: {x: 1.9704001, y: 3.0015998, z: -18.0083}
+  ultimatePosition: {x: 1.9704001, y: 7.36, z: -18.0083}
 --- !u!1001 &285053796
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -5657,6 +5688,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_ActionAssets:
   - {fileID: -944628639613478452, guid: c348712bda248c246b8c49b3db54643f, type: 3}
+--- !u!4 &2056199517 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 1717954561962503726, guid: f6336ac4ac8b4d34bc5072418cdc62a0, type: 3}
+  m_PrefabInstance: {fileID: 1451379362}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &2128450332
 PrefabInstance:
   m_ObjectHideFlags: 0

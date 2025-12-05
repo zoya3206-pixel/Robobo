@@ -92,7 +92,7 @@ public class RobotArmPunchController : MonoBehaviour
             RightBicep.localRotation == m_bicep_hit_rot)
         {
             RightBicep.localPosition = m_bicep_hit_pos;
-            Invoke("CanUnPunchingRight", 2f);
+            Invoke("CanUnPunchingRight", 1f);
         }
     }
 
@@ -100,10 +100,10 @@ public class RobotArmPunchController : MonoBehaviour
     {
         if (!m_rcan_unpunching) return;
 
-        RightForearm.localPosition += (m_forearm_idle_pos - RightForearm.localPosition) * Time.deltaTime * 4;
+        RightForearm.localPosition += (m_forearm_idle_pos - RightForearm.localPosition) * Time.deltaTime * 2;
         RightForearm.localRotation = Quaternion.Slerp(RightForearm.localRotation, m_forearm_idle_rot, m_rtime_count);
 
-        RightBicep.localPosition += (m_bicep_idle_pos - RightBicep.localPosition) * Time.deltaTime * 4;
+        RightBicep.localPosition += (m_bicep_idle_pos - RightBicep.localPosition) * Time.deltaTime * 2;
         RightBicep.localRotation = Quaternion.Slerp(RightBicep.localRotation, m_bicep_idle_rot, m_rtime_count);
 
         m_rtime_count = m_rtime_count + Time.deltaTime;
@@ -134,7 +134,7 @@ public class RobotArmPunchController : MonoBehaviour
             LeftBicep.localRotation == m_bicep_hit_rot)
         {
             LeftBicep.localPosition = m_bicep_hit_pos;
-            Invoke("CanUnPunchingLeft", 2f);
+            Invoke("CanUnPunchingLeft", 1f);
         }
     }
 
@@ -142,10 +142,10 @@ public class RobotArmPunchController : MonoBehaviour
     {
         if (!m_lcan_unpunching) return;
 
-        LeftForearm.localPosition += (m_forearm_idle_pos - LeftForearm.localPosition) * Time.deltaTime * 4;
+        LeftForearm.localPosition += (m_forearm_idle_pos - LeftForearm.localPosition) * Time.deltaTime * 2;
         LeftForearm.localRotation = Quaternion.Slerp(LeftForearm.localRotation, m_forearm_idle_rot, m_ltime_count);
 
-        LeftBicep.localPosition += (m_bicep_idle_pos - LeftBicep.localPosition) * Time.deltaTime * 4;
+        LeftBicep.localPosition += (m_bicep_idle_pos - LeftBicep.localPosition) * Time.deltaTime * 2;
         LeftBicep.localRotation = Quaternion.Slerp(LeftBicep.localRotation, m_bicep_idle_rot, m_ltime_count);
 
         m_ltime_count = m_ltime_count + Time.deltaTime;

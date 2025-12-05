@@ -15,7 +15,7 @@ public class CameraFollow : MonoBehaviour
         {
             Vector3 targetPosition = new Vector3(
                 MainCamera.transform.position.x,
-                MainCamera.transform.position.y + 3.83f,
+                MainCamera.transform.position.y + 7.81f,
                 MainCamera.transform.position.z
             );
 

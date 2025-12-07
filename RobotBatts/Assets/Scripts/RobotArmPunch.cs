@@ -1,5 +1,6 @@
 using System.Collections;
 using UnityEngine;
+using Bhaptics.SDK2;
 
 public class RobotArmPunchController : MonoBehaviour
 {
@@ -81,6 +82,8 @@ public class RobotArmPunchController : MonoBehaviour
 
         RightForearm.localPosition += (m_forearm_hit_pos - RightForearm.localPosition);
         RightForearm.localRotation = Quaternion.Slerp(RightForearm.localRotation, m_forearm_hit_rot, m_rtime_count);
+
+        BhapticsLibrary.Play("hit");
 
         RightBicep.localPosition += (m_bicep_hit_pos - RightBicep.localPosition) * Time.deltaTime * 4;
         RightBicep.localRotation = Quaternion.Slerp(RightBicep.localRotation, m_bicep_hit_rot, m_rtime_count);

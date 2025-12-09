@@ -1,3 +1,4 @@
+using Bhaptics.SDK2;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.XR.Interaction.Toolkit;
@@ -29,7 +30,6 @@ public class RobotUltimateController : MonoBehaviour
 
     private void Awake()
     {
-        // Если позиции не заданы, используем текущие
         if (robotTransform != null)
         {
             if (idlePosition == Vector3.zero)
@@ -42,7 +42,6 @@ public class RobotUltimateController : MonoBehaviour
 
     private void OnEnable()
     {
-        // Активируем input action
         if (activateUltimateAction.action != null)
         {
             activateUltimateAction.action.Enable();
@@ -52,7 +51,6 @@ public class RobotUltimateController : MonoBehaviour
 
     private void OnDisable()
     {
-        // Деактивируем input action
         if (activateUltimateAction.action != null)
         {
             activateUltimateAction.action.performed -= OnUltimatePerformed;
@@ -111,6 +109,7 @@ public class RobotUltimateController : MonoBehaviour
             if (robotTransform != null)
             {
                 robotTransform.localPosition = ultimatePosition;
+                BhapticsLibrary.Play("ultimate");
             }
             isRising = false;
             isWaiting = true;
@@ -149,16 +148,6 @@ public class RobotUltimateController : MonoBehaviour
             isFalling = false;
             isUltimateActive = false;
             animationTimer = 0f;
-        }
-    }
-
-    // Метод для ручного тестирования
-    [ContextMenu("Test Ultimate")]
-    public void TestUltimate()
-    {
-        if (!isUltimateActive)
-        {
-            StartUltimate();
         }
     }
 }

@@ -1,3 +1,4 @@
+using Bhaptics.SDK2;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.XR.Interaction.Toolkit;
@@ -11,34 +12,33 @@ public class RobotDodgeWithCooldown : MonoBehaviour
     [SerializeField] private InputActionReference leftDodgeAction;
     [SerializeField] private InputActionReference rightDodgeAction;
 
-    [Header("Dodge Positions")]
-    [SerializeField] private Vector3 basePosition = new Vector3(1.97040009f, 3.00159979f, -18.0083008f);
-    [SerializeField] private Vector3 leftDodgePosition = new Vector3(-1.54000001f, 3.00159979f, -18.0083008f);
-    [SerializeField] private Vector3 rightDodgePosition = new Vector3(4.82999992f, 3.00159979f, -18.0083008f);
-
     [Header("Dodge Settings")]
-    [SerializeField] private float dodgeDuration = 0.3f; // Время анимации уворота
-    [SerializeField] private float cooldown = 5f; // Кулдаун 5 секунд
+    [SerializeField] private float dodgeDuration = 0.3f;
+    [SerializeField] private float cooldown = 5f; 
+
+    [Header("Dodge Offsets")]
+    [SerializeField] private Vector3 leftDodgeOffset = new Vector3(-3f, 0f, 0f); 
+    [SerializeField] private Vector3 rightDodgeOffset = new Vector3(3f, 0f, 0f); 
+
+    private float leftCooldownTimer = 0f;
+    private float rightCooldownTimer = 0f;
 
     private Vector3 currentTargetPosition;
     private float dodgeTimer = 0f;
-    private float cooldownTimer = 0f;
     private bool isDodging = false;
-    private bool isOnCooldown = false;
+
+    private Vector3 accumulatedOffset = Vector3.zero;
 
     private void Start()
     {
-        // Устанавливаем начальную позицию
         if (robotTransform != null)
         {
-            robotTransform.localPosition = basePosition;
-            currentTargetPosition = basePosition;
+            currentTargetPosition = robotTransform.localPosition;
         }
     }
 
     private void OnEnable()
     {
-        // Активируем input actions
         if (leftDodgeAction != null)
         {
             leftDodgeAction.action.Enable();
@@ -54,7 +54,6 @@ public class RobotDodgeWithCooldown : MonoBehaviour
 
     private void OnDisable()
     {
-        // Деактивируем input actions
         if (leftDodgeAction != null)
         {
             leftDodgeAction.action.performed -= OnLeftDodgePerformed;
@@ -70,18 +69,18 @@ public class RobotDodgeWithCooldown : MonoBehaviour
 
     private void Update()
     {
-        // Обновляем таймер кулдауна
-        if (isOnCooldown)
+        if (leftCooldownTimer > 0f)
         {
-            cooldownTimer -= Time.deltaTime;
-            if (cooldownTimer <= 0f)
-            {
-                isOnCooldown = false;
-                cooldownTimer = 0f;
-            }
+            leftCooldownTimer -= Time.deltaTime;
+            if (leftCooldownTimer < 0f) leftCooldownTimer = 0f;
         }
 
-        // Обрабатываем анимацию уворота
+        if (rightCooldownTimer > 0f)
+        {
+            rightCooldownTimer -= Time.deltaTime;
+            if (rightCooldownTimer < 0f) rightCooldownTimer = 0f;
+        }
+
         if (isDodging)
         {
             dodgeTimer += Time.deltaTime;
@@ -110,7 +109,7 @@ public class RobotDodgeWithCooldown : MonoBehaviour
 
     private void OnLeftDodgePerformed(InputAction.CallbackContext context)
     {
-        if (!isOnCooldown)
+        if (leftCooldownTimer <= 0f)
         {
             DodgeLeft();
         }
@@ -118,7 +117,7 @@ public class RobotDodgeWithCooldown : MonoBehaviour
 
     private void OnRightDodgePerformed(InputAction.CallbackContext context)
     {
-        if (!isOnCooldown)
+        if (rightCooldownTimer <= 0f)
         {
             DodgeRight();
         }
@@ -128,58 +127,39 @@ public class RobotDodgeWithCooldown : MonoBehaviour
     {
         if (robotTransform == null) return;
 
-        currentTargetPosition = leftDodgePosition;
+        accumulatedOffset += leftDodgeOffset;
+
+        currentTargetPosition = robotTransform.localPosition + leftDodgeOffset;
+
+        BhapticsLibrary.Play("dodgeleft");
+
         isDodging = true;
         dodgeTimer = 0f;
 
-        // Стартуем кулдаун
-        StartCooldown();
+        leftCooldownTimer = cooldown;
     }
 
     private void DodgeRight()
     {
         if (robotTransform == null) return;
 
-        currentTargetPosition = rightDodgePosition;
+        accumulatedOffset += rightDodgeOffset;
+
+        currentTargetPosition = robotTransform.localPosition + rightDodgeOffset;
+
+        BhapticsLibrary.Play("dodgeright");
+
         isDodging = true;
         dodgeTimer = 0f;
 
-        // Стартуем кулдаун
-        StartCooldown();
+        rightCooldownTimer = cooldown;
     }
-
-    private void StartCooldown()
+    public Vector3 GetCurrentBasePosition()
     {
-        isOnCooldown = true;
-        cooldownTimer = cooldown;
+        return GetInitialPosition() + accumulatedOffset;
     }
-
-    [ContextMenu("Dodge Left")]
-    public void TestDodgeLeft()
+    private Vector3 GetInitialPosition()
     {
-        if (!isOnCooldown)
-        {
-            DodgeLeft();
-        }
-    }
-
-    [ContextMenu("Dodge Right")]
-    public void TestDodgeRight()
-    {
-        if (!isOnCooldown)
-        {
-            DodgeRight();
-        }
-    }
-
-    [ContextMenu("Reset to Base")]
-    public void ResetToBase()
-    {
-        robotTransform.localPosition = basePosition;
-        currentTargetPosition = basePosition;
-        isDodging = false;
-        dodgeTimer = 0f;
-        isOnCooldown = false;
-        cooldownTimer = 0f;
+        return new Vector3(1.97040009f, 3.00159979f, -18.0083008f);
     }
 }

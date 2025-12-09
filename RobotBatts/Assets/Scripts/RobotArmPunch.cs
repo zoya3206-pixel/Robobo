@@ -1,6 +1,7 @@
 using System.Collections;
 using UnityEngine;
 using Bhaptics.SDK2;
+using Unity.XR.CoreUtils;
 
 public class RobotArmPunchController : MonoBehaviour
 {
@@ -31,14 +32,15 @@ public class RobotArmPunchController : MonoBehaviour
 
     private void Start()
     {
-        m_forearm_idle_pos = new Vector3(62.1899986f, 71.6900024f, -62.5f);
-        m_forearm_idle_rot = new Quaternion(0.579913378f, -0.31349498f, 0.193250179f, 0.726688325f);
-        m_forearm_hit_pos = new Vector3(58.6199989f, 60.4700012f, -59.7599983f);
-        m_forearm_hit_rot = new Quaternion(0.428557694f, -0.226369068f, 0.233641773f, 0.842915714f);
-        m_bicep_idle_pos = new Vector3(19.4599991f, 13.1038933f, -34.9103317f);
-        m_bicep_idle_rot = new Quaternion(0.234761238f, -0.217837095f, 0.054071188f, 0.945785642f);
-        m_bicep_hit_pos = new Vector3(19.4599991f, 30.5494537f, -68.1299973f);
-        m_bicep_hit_rot = new Quaternion(0.402451813f, -0.22403188f, 0.0136534264f, 0.887499809f);
+        m_forearm_idle_pos = new Vector3(63.2700005f, 83.1303101f, -61.6399994f);
+        m_forearm_idle_rot = new Quaternion(0.680873752f, -0.355771303f, 0.160510227f, 0.619737208f);
+        m_forearm_hit_pos = new Vector3(65.2600021f, 61.2999992f, -45.0099983f);
+        m_forearm_hit_rot = new Quaternion(0.383888751f, -0.264530629f, 0.28698501f, 0.836834967f);
+
+        m_bicep_idle_pos = new Vector3(1.49691522f, 2.73115563f, 2.0158751f);
+        m_bicep_idle_rot = new Quaternion(0.0343496725f, -0.224308044f, 0.00791161321f, 0.973880649f);
+        m_bicep_hit_pos = new Vector3(8.72745323f, 33.3327637f, -76.2455902f);
+        m_bicep_hit_rot = new Quaternion(0.434348106f, -0.259771347f, -0.0657111406f, 0.859966695f);
     }
 
     private void Update()
@@ -57,10 +59,8 @@ public class RobotArmPunchController : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        // Проверяем тег контроллера
         if (other.CompareTag("LeftController"))
         {
-            // Проверяем, чтобы этот скрипт был на объекте с тегом "Hit"
             if (gameObject.CompareTag("Hit") && !IsLeftArmPunching)
             {
                 IsLeftArmPunching = true;
@@ -68,7 +68,6 @@ public class RobotArmPunchController : MonoBehaviour
         }
         else if (other.CompareTag("RightController"))
         {
-            // Проверяем, чтобы этот скрипт был на объекте с тегом "Hit"
             if (gameObject.CompareTag("Hit") && !IsRightArmPunching)
             {
                 IsRightArmPunching = true;
@@ -83,7 +82,7 @@ public class RobotArmPunchController : MonoBehaviour
         RightForearm.localPosition += (m_forearm_hit_pos - RightForearm.localPosition);
         RightForearm.localRotation = Quaternion.Slerp(RightForearm.localRotation, m_forearm_hit_rot, m_rtime_count);
 
-        BhapticsLibrary.Play("hit");
+        BhapticsLibrary.Play("righthit");
 
         RightBicep.localPosition += (m_bicep_hit_pos - RightBicep.localPosition) * Time.deltaTime * 4;
         RightBicep.localRotation = Quaternion.Slerp(RightBicep.localRotation, m_bicep_hit_rot, m_rtime_count);
@@ -104,14 +103,16 @@ public class RobotArmPunchController : MonoBehaviour
         if (!m_rcan_unpunching) return;
 
         RightForearm.localPosition += (m_forearm_idle_pos - RightForearm.localPosition) * Time.deltaTime * 2;
-        RightForearm.localRotation = Quaternion.Slerp(RightForearm.localRotation, m_forearm_idle_rot, m_rtime_count);
+        RightForearm.localRotation = Quaternion.Slerp(RightForearm.localRotation, m_forearm_idle_rot, m_rtime_count / 2);
 
-        RightBicep.localPosition += (m_bicep_idle_pos - RightBicep.localPosition) * Time.deltaTime * 2;
+        RightBicep.localPosition += (m_bicep_idle_pos - RightBicep.localPosition) * Time.deltaTime * 10;
         RightBicep.localRotation = Quaternion.Slerp(RightBicep.localRotation, m_bicep_idle_rot, m_rtime_count);
 
         m_rtime_count = m_rtime_count + Time.deltaTime;
 
         if (RightBicep.localRotation == m_bicep_idle_rot &&
+            (Vector3.Distance(m_bicep_idle_pos, RightBicep.localPosition) < 0.1f) &&
+            (Vector3.Distance(m_forearm_idle_pos, RightForearm.localPosition) < 0.1f) &&
             RightForearm.localRotation == m_forearm_idle_rot)
         {
             m_rtime_count = 0;
@@ -126,6 +127,8 @@ public class RobotArmPunchController : MonoBehaviour
 
         LeftForearm.localPosition += (m_forearm_hit_pos - LeftForearm.localPosition);
         LeftForearm.localRotation = Quaternion.Slerp(LeftForearm.localRotation, m_forearm_hit_rot, m_ltime_count);
+
+        BhapticsLibrary.Play("lefthit");
 
         LeftBicep.localPosition += (m_bicep_hit_pos - LeftBicep.localPosition) * Time.deltaTime * 4;
         LeftBicep.localRotation = Quaternion.Slerp(LeftBicep.localRotation, m_bicep_hit_rot, m_ltime_count);
@@ -146,14 +149,16 @@ public class RobotArmPunchController : MonoBehaviour
         if (!m_lcan_unpunching) return;
 
         LeftForearm.localPosition += (m_forearm_idle_pos - LeftForearm.localPosition) * Time.deltaTime * 2;
-        LeftForearm.localRotation = Quaternion.Slerp(LeftForearm.localRotation, m_forearm_idle_rot, m_ltime_count);
+        LeftForearm.localRotation = Quaternion.Slerp(LeftForearm.localRotation, m_forearm_idle_rot, m_ltime_count / 2);
 
-        LeftBicep.localPosition += (m_bicep_idle_pos - LeftBicep.localPosition) * Time.deltaTime * 2;
+        LeftBicep.localPosition += (m_bicep_idle_pos - LeftBicep.localPosition) * Time.deltaTime * 10;
         LeftBicep.localRotation = Quaternion.Slerp(LeftBicep.localRotation, m_bicep_idle_rot, m_ltime_count);
 
         m_ltime_count = m_ltime_count + Time.deltaTime;
 
         if (LeftBicep.localRotation == m_bicep_idle_rot &&
+            (Vector3.Distance(m_bicep_idle_pos, LeftBicep.localPosition) < 0.1f) &&
+            (Vector3.Distance(m_forearm_idle_pos, LeftForearm.localPosition) < 0.1f) &&
             LeftForearm.localRotation == m_forearm_idle_rot)
         {
             m_ltime_count = 0;

@@ -17,6 +17,16 @@ namespace Bhaptics.SDK2
     public class BhapticsEvent
     {
         
-        public const string HIT = "hit";
+        public const string DODGERIGHT = "dodgeright";
+        
+        public const string DODGELEFT = "dodgeleft";
+        
+        public const string ULTIMATE = "ultimate";
+        
+        public const string RIGHTHIT = "righthit";
+        
+        public const string LEFTTHIT = "leftthit";
+        
+        public const string ENOMYHIT = "enomyhit";
     }
 }

@@ -18,7 +18,10 @@ public class RobotDodgeWithCooldown : MonoBehaviour
 
     [Header("Dodge Offsets")]
     [SerializeField] private Vector3 leftDodgeOffset = new Vector3(-3f, 0f, 0f); 
-    [SerializeField] private Vector3 rightDodgeOffset = new Vector3(3f, 0f, 0f); 
+    [SerializeField] private Vector3 rightDodgeOffset = new Vector3(3f, 0f, 0f);
+
+    [Header("Capsule Controller")]
+    [SerializeField] private FutuRiftCapsuleController capsuleController;
 
     private float leftCooldownTimer = 0f;
     private float rightCooldownTimer = 0f;
@@ -112,6 +115,7 @@ public class RobotDodgeWithCooldown : MonoBehaviour
         if (leftCooldownTimer <= 0f)
         {
             DodgeLeft();
+            Invoke("capsuleController?.StopAllTilts()", 2f);
         }
     }
 
@@ -120,6 +124,7 @@ public class RobotDodgeWithCooldown : MonoBehaviour
         if (rightCooldownTimer <= 0f)
         {
             DodgeRight();
+            Invoke("capsuleController?.StopAllTilts()", 2f);
         }
     }
 
@@ -132,6 +137,7 @@ public class RobotDodgeWithCooldown : MonoBehaviour
         currentTargetPosition = robotTransform.localPosition + leftDodgeOffset;
 
         BhapticsLibrary.Play("dodgeleft");
+        capsuleController?.TriggerDodgeLeftTilt();
 
         isDodging = true;
         dodgeTimer = 0f;
@@ -148,6 +154,7 @@ public class RobotDodgeWithCooldown : MonoBehaviour
         currentTargetPosition = robotTransform.localPosition + rightDodgeOffset;
 
         BhapticsLibrary.Play("dodgeright");
+        capsuleController?.TriggerDodgeRightTilt();
 
         isDodging = true;
         dodgeTimer = 0f;

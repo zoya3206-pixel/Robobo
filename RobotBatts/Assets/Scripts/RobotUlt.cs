@@ -20,6 +20,9 @@ public class RobotUltimateController : MonoBehaviour
     [SerializeField] private Vector3 idlePosition = new Vector3(1.97040009f, 3.00159979f, -18.0083008f);
     [SerializeField] private Vector3 ultimatePosition = new Vector3(1.97040009f, 7.36000013f, -18.0083008f);
 
+    [Header("Capsule Controller")]
+    [SerializeField] private FutuRiftCapsuleController capsuleController;
+
     private bool isUltimateActive = false;
     private bool isRising = false;
     private bool isFalling = false;
@@ -110,6 +113,7 @@ public class RobotUltimateController : MonoBehaviour
             {
                 robotTransform.localPosition = ultimatePosition;
                 BhapticsLibrary.Play("ultimate");
+                capsuleController?.TriggerUltimateRiseTilt();
             }
             isRising = false;
             isWaiting = true;
@@ -126,6 +130,7 @@ public class RobotUltimateController : MonoBehaviour
             isWaiting = false;
             isFalling = true;
             waitTimer = 0f;
+            capsuleController?.TriggerUltimateStabilizeTilt();
         }
     }
 
@@ -148,6 +153,8 @@ public class RobotUltimateController : MonoBehaviour
             isFalling = false;
             isUltimateActive = false;
             animationTimer = 0f;
+            capsuleController?.TriggerFallingTilt();
+            Invoke("capsuleController?.StopAllTilts()", 2f);
         }
     }
 }

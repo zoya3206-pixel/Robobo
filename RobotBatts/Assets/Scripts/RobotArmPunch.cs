@@ -11,6 +11,9 @@ public class RobotArmPunchController : MonoBehaviour
     [SerializeField] public Transform RightBicep;
     [SerializeField] public Transform RightForearm;
 
+    [Header("Capsule Controller")]
+    [SerializeField] private FutuRiftCapsuleController capsuleController;
+
     public bool IsLeftArmPunching = false;
     public bool IsRightArmPunching = false;
 
@@ -83,6 +86,7 @@ public class RobotArmPunchController : MonoBehaviour
         RightForearm.localRotation = Quaternion.Slerp(RightForearm.localRotation, m_forearm_hit_rot, m_rtime_count);
 
         BhapticsLibrary.Play("righthit");
+        capsuleController?.TriggerNockbackTilt();
 
         RightBicep.localPosition += (m_bicep_hit_pos - RightBicep.localPosition) * Time.deltaTime * 4;
         RightBicep.localRotation = Quaternion.Slerp(RightBicep.localRotation, m_bicep_hit_rot, m_rtime_count);
@@ -119,6 +123,7 @@ public class RobotArmPunchController : MonoBehaviour
             m_rcan_unpunching = false;
             IsRightArmPunching = false;
         }
+        Invoke("capsuleController?.StopAllTilts()", 1f);
     }
 
     private void LeftArmPunching()
@@ -129,6 +134,7 @@ public class RobotArmPunchController : MonoBehaviour
         LeftForearm.localRotation = Quaternion.Slerp(LeftForearm.localRotation, m_forearm_hit_rot, m_ltime_count);
 
         BhapticsLibrary.Play("lefthit");
+        capsuleController?.TriggerNockbackTilt();
 
         LeftBicep.localPosition += (m_bicep_hit_pos - LeftBicep.localPosition) * Time.deltaTime * 4;
         LeftBicep.localRotation = Quaternion.Slerp(LeftBicep.localRotation, m_bicep_hit_rot, m_ltime_count);
@@ -165,6 +171,7 @@ public class RobotArmPunchController : MonoBehaviour
             m_lcan_unpunching = false;
             IsLeftArmPunching = false;
         }
+        Invoke("capsuleController?.StopAllTilts()", 1f);
     }
 
     private void CanUnPunchingLeft()

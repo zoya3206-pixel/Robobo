@@ -1230,6 +1230,7 @@ MonoBehaviour:
   LeftForearm: {fileID: 909241343}
   RightBicep: {fileID: 1122670417}
   RightForearm: {fileID: 1708693794}
+  capsuleController: {fileID: 263729991}
   IsLeftArmPunching: 0
   IsRightArmPunching: 0
 --- !u!1 &263729987
@@ -1243,6 +1244,7 @@ GameObject:
   - component: {fileID: 263729988}
   - component: {fileID: 263729989}
   - component: {fileID: 263729990}
+  - component: {fileID: 263729991}
   m_Layer: 0
   m_Name: Robot
   m_TagString: Untagged
@@ -1299,6 +1301,7 @@ MonoBehaviour:
   waitTime: 1
   idlePosition: {x: 1.9704001, y: 3.0015998, z: -18.0083}
   ultimatePosition: {x: 1.9704001, y: 7.36, z: -18.0083}
+  capsuleController: {fileID: 263729991}
 --- !u!114 &263729990
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1318,6 +1321,29 @@ MonoBehaviour:
   cooldown: 5
   leftDodgeOffset: {x: -6, y: 0, z: 0}
   rightDodgeOffset: {x: 6, y: 0, z: 0}
+  capsuleController: {fileID: 263729991}
+--- !u!114 &263729991
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 263729987}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c50d1c9a2c5cdf9459146e274961ad34, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  ipAddress: 127.0.0.1
+  port: 6065
+  maxTiltAngle: 25
+  tiltRecoverySpeed: 3
+  nockbackAngle: 5
+  dodgeInitialAngle: 3
+  enemyHitAngle: 4
+  walkForwardAngle: 2
+  walkSideAngle: 1
+  walkCycleDuration: 0.8
 --- !u!1001 &285053796
 PrefabInstance:
   m_ObjectHideFlags: 0

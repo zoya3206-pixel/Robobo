@@ -10,7 +10,7 @@ public class EnemyAI : MonoBehaviour
     [SerializeField] private Animator animator;
     [SerializeField] private EnemyShooting shooting;
 
-    [Header("Settings")]
+    [Header("Detection Settings")]
     [SerializeField] private float sightRange = 15f;
     [SerializeField] private float attackRange = 10f;
     [SerializeField] private float patrolRange = 20f;
@@ -21,6 +21,9 @@ public class EnemyAI : MonoBehaviour
     [SerializeField] private float berserkDuration = 20f;
     [SerializeField] private float stunDuration = 30f;
 
+    [Header("Attack Settings")]
+    [SerializeField] private float attackCooldown = 2f;
+
     private enum AIState { Idle, Patrol, Chase, Attack, Berserk, Stunned }
     private AIState currentState = AIState.Idle;
 
@@ -28,8 +31,10 @@ public class EnemyAI : MonoBehaviour
     private bool isDead = false;
     private float gameStartTime;
     private float modeTimer = 0f;
+    private float attackTimer = 0f;
     private bool inBerserkMode = false;
     private bool inStunMode = false;
+    private bool canAttack = true;
 
     void Start()
     {
@@ -45,8 +50,29 @@ public class EnemyAI : MonoBehaviour
             if (playerObj != null) player = playerObj.transform;
         }
 
+        // Отключаем автоматический поворот агента
+        if (agent != null)
+        {
+            agent.updateRotation = false;  // ВАЖНО!
+            agent.updatePosition = true;
+        }
+
         gameStartTime = Time.time;
         StartCoroutine(InitialIdle());
+    }
+
+    private void RotateTowardsPlayer()
+    {
+        if (player == null) return;
+
+        Vector3 direction = player.position - transform.position;
+        direction.y = 0; // Игнорируем разницу по высоте
+
+        if (direction != Vector3.zero)
+        {
+            Quaternion targetRotation = Quaternion.LookRotation(direction);
+            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, Time.deltaTime * 5f);
+        }
     }
 
     private IEnumerator InitialIdle()
@@ -61,34 +87,84 @@ public class EnemyAI : MonoBehaviour
         if (isDead) return;
 
         CheckModeTimers();
+        UpdateAttackCooldown();
 
         if (currentState == AIState.Stunned) return;
 
-        // Обновляем аниматор
         UpdateAnimator();
 
-        // Простая логика
-        if (player != null)
+        if (player == null) return;
+
+        float distance = Vector3.Distance(transform.position, player.position);
+
+        // Поворачиваемся к игроку в состояниях атаки и преследования
+        if (currentState == AIState.Attack || currentState == AIState.Berserk)
         {
-            float distance = Vector3.Distance(transform.position, player.position);
+            RotateTowardsPlayer();
+        }
 
-            if (distance <= attackRange && currentState != AIState.Berserk)
-            {
-                SetState(AIState.Attack);
-            }
-            else if (distance <= sightRange && currentState != AIState.Berserk)
-            {
-                SetState(AIState.Chase);
-            }
-            else if (currentState != AIState.Patrol && currentState != AIState.Berserk)
-            {
-                SetState(AIState.Patrol);
-            }
+        // Логика состояний
+        switch (currentState)
+        {
+            case AIState.Patrol:
+                if (distance <= sightRange)
+                {
+                    SetState(AIState.Chase);
+                }
+                break;
 
-            // В режиме преследования двигаемся к игроку
-            if (currentState == AIState.Chase || currentState == AIState.Berserk)
-            {
+            case AIState.Chase:
+                if (distance <= attackRange)
+                {
+                    SetState(AIState.Attack);
+                }
+                else if (distance > sightRange)
+                {
+                    SetState(AIState.Patrol);
+                }
+                else
+                {
+                    agent.SetDestination(player.position);
+                }
+                break;
+
+            case AIState.Attack:
+                if (distance > attackRange)
+                {
+                    SetState(AIState.Chase);
+                }
+                else if (distance > sightRange)
+                {
+                    SetState(AIState.Patrol);
+                }
+                else
+                {
+                    // Стреляем, если можно
+                    if (canAttack)
+                    {
+                        shooting.StartShooting(false);
+                        canAttack = false;
+                        attackTimer = attackCooldown;
+                    }
+                }
+                break;
+
+            case AIState.Berserk:
                 agent.SetDestination(player.position);
+                shooting.StartShooting(true);
+                break;
+        }
+    }
+
+    private void UpdateAttackCooldown()
+    {
+        if (!canAttack)
+        {
+            attackTimer -= Time.deltaTime;
+            if (attackTimer <= 0)
+            {
+                canAttack = true;
+                shooting.StopShooting();
             }
         }
     }
@@ -121,7 +197,7 @@ public class EnemyAI : MonoBehaviour
             if (modeTimer > stunDuration)
             {
                 EndStunMode();
-                gameStartTime = Time.time; // Сброс таймера
+                gameStartTime = Time.time;
             }
         }
     }
@@ -131,14 +207,16 @@ public class EnemyAI : MonoBehaviour
         inBerserkMode = true;
         modeTimer = 0f;
         SetState(AIState.Berserk);
-        Debug.Log("Безумие началось!");
+        agent.speed = 6f; // Увеличиваем скорость в режиме безумия
+        Debug.Log("Безумие началось! Враг неистово стреляет!");
     }
 
     private void EndBerserkMode()
     {
         inBerserkMode = false;
         modeTimer = 0f;
-        if (shooting != null) shooting.StopShooting();
+        shooting.StopShooting();
+        agent.speed = 3.5f; // Возвращаем нормальную скорость
     }
 
     private void StartStunMode()
@@ -146,7 +224,8 @@ public class EnemyAI : MonoBehaviour
         inStunMode = true;
         modeTimer = 0f;
         SetState(AIState.Stunned);
-        Debug.Log("Оглушение на 30 секунд");
+        shooting.StopShooting();
+        Debug.Log("Враг оглушён на 30 секунд!");
     }
 
     private void EndStunMode()
@@ -154,19 +233,21 @@ public class EnemyAI : MonoBehaviour
         inStunMode = false;
         modeTimer = 0f;
         SetState(AIState.Patrol);
+        Debug.Log("Враг оправился от оглушения!");
     }
 
     private void SetState(AIState newState)
     {
+        if (currentState == newState) return;
+
         currentState = newState;
 
-        // Остановка стрельбы
-        if (shooting != null && newState != AIState.Attack && newState != AIState.Berserk)
+        // Остановка стрельбы при смене состояния
+        if (newState != AIState.Attack && newState != AIState.Berserk)
         {
             shooting.StopShooting();
         }
 
-        // Настройка агента
         switch (newState)
         {
             case AIState.Idle:
@@ -182,22 +263,21 @@ public class EnemyAI : MonoBehaviour
                 break;
         }
 
-        // Управление аниматором
-        if (animator != null)
-        {
-            // Сначала сбрасываем все bool параметры
-            animator.SetBool("IsShooting", false);
-            animator.SetBool("IsStunned", false);
+        UpdateAnimatorParameters();
+    }
 
-            // Затем устанавливаем нужные
-            if (newState == AIState.Attack || newState == AIState.Berserk)
-            {
-                animator.SetBool("IsShooting", true);
-            }
-            else if (newState == AIState.Stunned)
-            {
-                animator.SetBool("IsStunned", true);
-            }
+    private void UpdateAnimatorParameters()
+    {
+        animator.SetBool("IsShooting", false);
+        animator.SetBool("IsStunned", false);
+
+        if (currentState == AIState.Attack || currentState == AIState.Berserk)
+        {
+            animator.SetBool("IsShooting", true);
+        }
+        else if (currentState == AIState.Stunned)
+        {
+            animator.SetBool("IsStunned", true);
         }
     }
 
@@ -205,15 +285,24 @@ public class EnemyAI : MonoBehaviour
     {
         if (animator == null) return;
 
-        // Speed для ходьбы/бега
-        float speed = 0f;
-        if (currentState == AIState.Patrol || currentState == AIState.Chase || currentState == AIState.Berserk)
-        {
-            speed = agent.velocity.magnitude / agent.speed;
-        }
-        animator.SetFloat("Speed", speed);
+        // ВРЕМЕННО УБИРАЕМ Speed - будем настраивать позже
+        // float speed = 0f;
+        // if (currentState == AIState.Patrol || currentState == AIState.Chase || currentState == AIState.Berserk)
+        // {
+        //     speed = agent.velocity.magnitude / agent.speed;
+        // }
+        // animator.SetFloat("Speed", speed);
 
-        // Патрулирование
+        // Просто включаем анимацию ходьбы, если двигаемся
+        if (agent.velocity.magnitude > 0.1f)
+        {
+            animator.SetBool("IsWalking", true);
+        }
+        else
+        {
+            animator.SetBool("IsWalking", false);
+        }
+
         if (currentState == AIState.Patrol)
         {
             FindPatrolPoint();
@@ -226,9 +315,10 @@ public class EnemyAI : MonoBehaviour
         {
             Vector3 randomDirection = Random.insideUnitSphere * patrolRange;
             randomDirection += startPosition;
+            randomDirection.y = startPosition.y;
 
             NavMeshHit hit;
-            if (NavMesh.SamplePosition(randomDirection, out hit, patrolRange, 1))
+            if (NavMesh.SamplePosition(randomDirection, out hit, patrolRange, NavMesh.AllAreas))
             {
                 agent.SetDestination(hit.position);
             }

@@ -4,334 +4,204 @@ using System.Collections;
 
 public class EnemyAI : MonoBehaviour
 {
-    [Header("References")]
-    [SerializeField] private Transform player;
-    [SerializeField] private NavMeshAgent agent;
-    [SerializeField] private Animator animator;
-    [SerializeField] private EnemyShooting shooting;
+    [Header("Ссылки")]
+    [SerializeField] private Transform playerTarget;
+    private NavMeshAgent agent;
+    private Animator animator;
+    private EnemyShooter shooter;
+    private EnemyHealth enemyHealth;
 
-    [Header("Detection Settings")]
-    [SerializeField] private float sightRange = 15f;
-    [SerializeField] private float attackRange = 10f;
-    [SerializeField] private float patrolRange = 20f;
-    [SerializeField] private float initialIdleTime = 5f;
-
-    [Header("Berserk Mode")]
+    [Header("Настройки AI")]
+    [SerializeField] private float startDelay = 5f;
+    [SerializeField] private float shootingRange = 15f;
+    [SerializeField] private float timeBetweenShots = 2f;
     [SerializeField] private float berserkStartTime = 60f;
     [SerializeField] private float berserkDuration = 20f;
-    [SerializeField] private float stunDuration = 30f;
+    [SerializeField] private float restDuration = 30f;
 
-    [Header("Attack Settings")]
-    [SerializeField] private float attackCooldown = 2f;
-
-    private enum AIState { Idle, Patrol, Chase, Attack, Berserk, Stunned }
-    private AIState currentState = AIState.Idle;
-
-    private Vector3 startPosition;
-    private bool isDead = false;
-    private float gameStartTime;
-    private float modeTimer = 0f;
-    private float attackTimer = 0f;
-    private bool inBerserkMode = false;
-    private bool inStunMode = false;
-    private bool canAttack = true;
+    private bool isShooting = false;
+    private bool isBerserk = false;
+    private bool canShoot = true; // Может ли робот стрелять
+    private bool gameStarted = false;
 
     void Start()
     {
-        startPosition = transform.position;
+        agent = GetComponent<NavMeshAgent>();
+        animator = GetComponent<Animator>();
+        shooter = GetComponent<EnemyShooter>();
+        enemyHealth = GetComponent<EnemyHealth>();
 
-        if (agent == null) agent = GetComponent<NavMeshAgent>();
-        if (animator == null) animator = GetComponent<Animator>();
-        if (shooting == null) shooting = GetComponent<EnemyShooting>();
-
-        if (player == null)
+        if (playerTarget == null)
         {
             GameObject playerObj = GameObject.FindGameObjectWithTag("Player");
-            if (playerObj != null) player = playerObj.transform;
+            if (playerObj != null) playerTarget = playerObj.transform;
         }
 
-        // Отключаем автоматический поворот агента
-        if (agent != null)
-        {
-            agent.updateRotation = false;  // ВАЖНО!
-            agent.updatePosition = true;
-        }
-
-        gameStartTime = Time.time;
-        StartCoroutine(InitialIdle());
+        StartCoroutine(InitialDelay());
+        StartCoroutine(BerserkTimer());
     }
 
-    private void RotateTowardsPlayer()
+    IEnumerator InitialDelay()
     {
-        if (player == null) return;
+        Debug.Log("Робот загрузился, стоит 5 секунд.");
+        agent.isStopped = true;
+        SetIdleState();
 
-        Vector3 direction = player.position - transform.position;
-        direction.y = 0; // Игнорируем разницу по высоте
-
-        if (direction != Vector3.zero)
-        {
-            Quaternion targetRotation = Quaternion.LookRotation(direction);
-            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, Time.deltaTime * 5f);
-        }
+        yield return new WaitForSeconds(startDelay);
+        gameStarted = true;
+        agent.isStopped = false;
+        Debug.Log("Робот активирован!");
     }
 
-    private IEnumerator InitialIdle()
+    IEnumerator BerserkTimer()
     {
-        SetState(AIState.Idle);
-        yield return new WaitForSeconds(initialIdleTime);
-        SetState(AIState.Patrol);
+        // Ждём 60 секунд до начала бешенства
+        yield return new WaitForSeconds(berserkStartTime);
+
+        // Начинаем бешенство
+        StartBerserkMode();
+
+        // Ждём 20 секунд бешенства
+        yield return new WaitForSeconds(berserkDuration);
+
+        // Останавливаем бешенство
+        EndBerserkMode();
+
+        // Ждём 30 секунд отдыха
+        yield return new WaitForSeconds(restDuration);
+
+        // Возвращаемся к обычному режиму
+        ReturnToNormalMode();
+    }
+
+    void StartBerserkMode()
+    {
+        isBerserk = true;
+        canShoot = true;
+        shooter.SetBerserkMode(true);
+        Debug.Log("БЕШЕНСТВО АКТИВИРОВАНО! 20 секунд непрерывного огня!");
+    }
+
+    void EndBerserkMode()
+    {
+        isBerserk = false;
+        canShoot = false; // Не может стрелять во время отдыха
+        shooter.SetBerserkMode(false);
+        Debug.Log("Робот устал. 30 секунд отдыха (не стреляет).");
+    }
+
+    void ReturnToNormalMode()
+    {
+        canShoot = true; // Снова может стрелять
+        Debug.Log("Робот отдохнул. Возврат к обычному режиму.");
     }
 
     void Update()
     {
-        if (isDead) return;
+        // Проверяем условия для обновления
+        if (!gameStarted || playerTarget == null ||
+            (enemyHealth != null && enemyHealth.IsDead()))
+            return;
 
-        CheckModeTimers();
-        UpdateAttackCooldown();
+        float distanceToPlayer = Vector3.Distance(transform.position, playerTarget.position);
 
-        if (currentState == AIState.Stunned) return;
-
-        UpdateAnimator();
-
-        if (player == null) return;
-
-        float distance = Vector3.Distance(transform.position, player.position);
-
-        // Поворачиваемся к игроку в состояниях атаки и преследования
-        if (currentState == AIState.Attack || currentState == AIState.Berserk)
+        // Логика перемещения
+        if (distanceToPlayer <= shootingRange && distanceToPlayer > agent.stoppingDistance)
         {
-            RotateTowardsPlayer();
+            MoveToPlayer();
         }
-
-        // Логика состояний
-        switch (currentState)
+        else if (distanceToPlayer <= agent.stoppingDistance)
         {
-            case AIState.Patrol:
-                if (distance <= sightRange)
-                {
-                    SetState(AIState.Chase);
-                }
-                break;
-
-            case AIState.Chase:
-                if (distance <= attackRange)
-                {
-                    SetState(AIState.Attack);
-                }
-                else if (distance > sightRange)
-                {
-                    SetState(AIState.Patrol);
-                }
-                else
-                {
-                    agent.SetDestination(player.position);
-                }
-                break;
-
-            case AIState.Attack:
-                if (distance > attackRange)
-                {
-                    SetState(AIState.Chase);
-                }
-                else if (distance > sightRange)
-                {
-                    SetState(AIState.Patrol);
-                }
-                else
-                {
-                    // Стреляем, если можно
-                    if (canAttack)
-                    {
-                        shooting.StartShooting(false);
-                        canAttack = false;
-                        attackTimer = attackCooldown;
-                    }
-                }
-                break;
-
-            case AIState.Berserk:
-                agent.SetDestination(player.position);
-                shooting.StartShooting(true);
-                break;
-        }
-    }
-
-    private void UpdateAttackCooldown()
-    {
-        if (!canAttack)
-        {
-            attackTimer -= Time.deltaTime;
-            if (attackTimer <= 0)
+            StopMoving();
+            // Стреляем только если можем
+            if (!isShooting && canShoot)
             {
-                canAttack = true;
-                shooting.StopShooting();
+                StartCoroutine(ShootingRoutine());
             }
-        }
-    }
-
-    private void CheckModeTimers()
-    {
-        float timeSinceStart = Time.time - gameStartTime;
-
-        // Через 60 секунд - режим безумия
-        if (timeSinceStart > berserkStartTime && !inBerserkMode && !inStunMode)
-        {
-            StartBerserkMode();
-        }
-
-        if (inBerserkMode)
-        {
-            modeTimer += Time.deltaTime;
-
-            if (modeTimer > berserkDuration)
-            {
-                EndBerserkMode();
-                StartStunMode();
-            }
-        }
-
-        if (inStunMode)
-        {
-            modeTimer += Time.deltaTime;
-
-            if (modeTimer > stunDuration)
-            {
-                EndStunMode();
-                gameStartTime = Time.time;
-            }
-        }
-    }
-
-    private void StartBerserkMode()
-    {
-        inBerserkMode = true;
-        modeTimer = 0f;
-        SetState(AIState.Berserk);
-        agent.speed = 6f; // Увеличиваем скорость в режиме безумия
-        Debug.Log("Безумие началось! Враг неистово стреляет!");
-    }
-
-    private void EndBerserkMode()
-    {
-        inBerserkMode = false;
-        modeTimer = 0f;
-        shooting.StopShooting();
-        agent.speed = 3.5f; // Возвращаем нормальную скорость
-    }
-
-    private void StartStunMode()
-    {
-        inStunMode = true;
-        modeTimer = 0f;
-        SetState(AIState.Stunned);
-        shooting.StopShooting();
-        Debug.Log("Враг оглушён на 30 секунд!");
-    }
-
-    private void EndStunMode()
-    {
-        inStunMode = false;
-        modeTimer = 0f;
-        SetState(AIState.Patrol);
-        Debug.Log("Враг оправился от оглушения!");
-    }
-
-    private void SetState(AIState newState)
-    {
-        if (currentState == newState) return;
-
-        currentState = newState;
-
-        // Остановка стрельбы при смене состояния
-        if (newState != AIState.Attack && newState != AIState.Berserk)
-        {
-            shooting.StopShooting();
-        }
-
-        switch (newState)
-        {
-            case AIState.Idle:
-            case AIState.Attack:
-            case AIState.Stunned:
-                agent.isStopped = true;
-                break;
-
-            case AIState.Patrol:
-            case AIState.Chase:
-            case AIState.Berserk:
-                agent.isStopped = false;
-                break;
-        }
-
-        UpdateAnimatorParameters();
-    }
-
-    private void UpdateAnimatorParameters()
-    {
-        animator.SetBool("IsShooting", false);
-        animator.SetBool("IsStunned", false);
-
-        if (currentState == AIState.Attack || currentState == AIState.Berserk)
-        {
-            animator.SetBool("IsShooting", true);
-        }
-        else if (currentState == AIState.Stunned)
-        {
-            animator.SetBool("IsStunned", true);
-        }
-    }
-
-    private void UpdateAnimator()
-    {
-        if (animator == null) return;
-
-        // ВРЕМЕННО УБИРАЕМ Speed - будем настраивать позже
-        // float speed = 0f;
-        // if (currentState == AIState.Patrol || currentState == AIState.Chase || currentState == AIState.Berserk)
-        // {
-        //     speed = agent.velocity.magnitude / agent.speed;
-        // }
-        // animator.SetFloat("Speed", speed);
-
-        // Просто включаем анимацию ходьбы, если двигаемся
-        if (agent.velocity.magnitude > 0.1f)
-        {
-            animator.SetBool("IsWalking", true);
         }
         else
         {
+            MoveToPlayer();
+        }
+
+        // Обновляем анимацию ходьбы
+        UpdateWalkAnimation();
+    }
+
+    void SetIdleState()
+    {
+        if (animator != null)
+        {
+            animator.SetBool("IsWalking", false);
+            animator.SetBool("IsShooting", false);
+        }
+    }
+
+    void UpdateWalkAnimation()
+    {
+        if (animator != null && !isShooting)
+        {
+            bool isMoving = agent.velocity.magnitude > 0.1f && agent.isStopped == false;
+            animator.SetBool("IsWalking", isMoving);
+        }
+    }
+
+    void MoveToPlayer()
+    {
+        agent.isStopped = false;
+        agent.SetDestination(playerTarget.position);
+    }
+
+    void StopMoving()
+    {
+        agent.isStopped = true;
+        if (animator != null)
+        {
             animator.SetBool("IsWalking", false);
         }
-
-        if (currentState == AIState.Patrol)
-        {
-            FindPatrolPoint();
-        }
     }
 
-    private void FindPatrolPoint()
+    IEnumerator ShootingRoutine()
     {
-        if (!agent.pathPending && agent.remainingDistance < 1f)
-        {
-            Vector3 randomDirection = Random.insideUnitSphere * patrolRange;
-            randomDirection += startPosition;
-            randomDirection.y = startPosition.y;
+        isShooting = true;
 
-            NavMeshHit hit;
-            if (NavMesh.SamplePosition(randomDirection, out hit, patrolRange, NavMesh.AllAreas))
+        while (Vector3.Distance(transform.position, playerTarget.position) <= agent.stoppingDistance &&
+               canShoot && // Добавляем проверку canShoot
+               (enemyHealth == null || !enemyHealth.IsDead()))
+        {
+            // Поворачиваемся к игроку
+            Vector3 direction = (playerTarget.position - transform.position).normalized;
+            direction.y = 0;
+            if (direction != Vector3.zero)
             {
-                agent.SetDestination(hit.position);
+                Quaternion lookRotation = Quaternion.LookRotation(direction);
+                transform.rotation = Quaternion.Slerp(transform.rotation, lookRotation, Time.deltaTime * 10f);
+            }
+
+            // Включаем анимацию стрельбы
+            animator.SetBool("IsShooting", true);
+            animator.SetBool("IsWalking", false);
+
+            // Стреляем
+            if (shooter != null) shooter.Shoot();
+
+            // Ждём между выстрелами в зависимости от режима
+            if (isBerserk)
+            {
+                // Бешенство: стреляем очень быстро
+                yield return new WaitForSeconds(0.1f);
+            }
+            else
+            {
+                // Обычный режим: даём игроку время для атаки
+                yield return new WaitForSeconds(0.5f);
+                animator.SetBool("IsShooting", false);
+                yield return new WaitForSeconds(timeBetweenShots - 0.5f);
             }
         }
-    }
 
-    public void SetDead(bool dead)
-    {
-        isDead = dead;
-        agent.isStopped = true;
-        enabled = false;
-
-        if (animator != null)
-            animator.SetBool("IsDead", true);
+        // Заканчиваем стрельбу
+        isShooting = false;
+        animator.SetBool("IsShooting", false);
     }
 }

@@ -7,7 +7,7 @@ public class CameraFollow : MonoBehaviour
     public Camera MainCamera;
     public float rotationSmoothSpeed = 2f;
 
-    public float smoothSpeed = 17f; // Скорость плавного следования
+    public float smoothSpeed = 17f;
 
     private void Update()
     {
@@ -18,28 +18,11 @@ public class CameraFollow : MonoBehaviour
                 MainCamera.transform.position.y + 7.81f,
                 MainCamera.transform.position.z
             );
-
-            // Плавное перемещение
             Follower.transform.position = Vector3.Lerp(
                 Follower.transform.position,
                 targetPosition,
                 smoothSpeed
             );
-
-            // Получаем текущий и целевой поворот
-            //Quaternion currentRotation = RotationFollower.transform.rotation;
-            //Quaternion targetRotation = Quaternion.Euler(
-            // 0,
-            // MainCamera.transform.eulerAngles.y,
-            // 0
-            //);
-
-            // Плавное вращение
-            //RotationFollower.transform.rotation = Quaternion.Lerp(
-            //currentRotation,
-            //targetRotation,
-            //smoothSpeed/10 * Time.deltaTime
-
             Vector3 cameraEuler = MainCamera.transform.eulerAngles;
             Quaternion targetRotation = Quaternion.Euler(0, cameraEuler.y, 0);
 

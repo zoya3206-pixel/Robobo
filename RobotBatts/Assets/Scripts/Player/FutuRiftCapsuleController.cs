@@ -40,20 +40,15 @@ public class FutuRiftCapsuleController : MonoBehaviour
 
     void Update()
     {
-        // Обработка автоматического возврата к нейтрали, если нет активных действий
         if (currentActionCoroutine == null && !isWalkingAnimation)
         {
             _currentPitch = Mathf.Lerp(_currentPitch, 0f, tiltRecoverySpeed * Time.deltaTime);
             _currentRoll = Mathf.Lerp(_currentRoll, 0f, tiltRecoverySpeed * Time.deltaTime);
         }
-
-        // Обработка анимации ходьбы
         if (isWalkingAnimation)
         {
             UpdateWalkingTilt();
         }
-
-        // Применение наклонов к капсуле
         ApplyTilts();
     }
 
@@ -76,8 +71,6 @@ public class FutuRiftCapsuleController : MonoBehaviour
         }
     }
 
-    // ========== ОСНОВНЫЕ МЕТОДЫ УПРАВЛЕНИЯ ==========
-
     public void SetManualTilt(float pitch, float roll)
     {
         _currentPitch = Mathf.Clamp(pitch, -maxTiltAngle, maxTiltAngle);
@@ -90,9 +83,6 @@ public class FutuRiftCapsuleController : MonoBehaviour
         _currentRoll = 0f;
     }
 
-    // ========== МЕТОДЫ ДЛЯ ИГРОВЫХ СИТУАЦИЙ ==========
-
-    // 1. Удар с отдачей (nockback)
     public void TriggerNockbackTilt()
     {
         if (currentActionCoroutine != null)
@@ -103,20 +93,14 @@ public class FutuRiftCapsuleController : MonoBehaviour
 
     private IEnumerator NockbackTiltCoroutine()
     {
-        // Резкий наклон назад
         SetManualTilt(-nockbackAngle, 0f);
         yield return new WaitForSeconds(0.15f);
-
-        // Быстрый наклон вперед
         SetManualTilt(nockbackAngle, 0f);
         yield return new WaitForSeconds(0.1f);
-
-        // Возврат в нормальное состояние
         ResetTilt();
         currentActionCoroutine = null;
     }
 
-    // 2. Уклонение вправо
     public void TriggerDodgeRightTilt()
     {
         if (currentActionCoroutine != null)
@@ -127,19 +111,14 @@ public class FutuRiftCapsuleController : MonoBehaviour
 
     private IEnumerator DodgeRightTiltCoroutine()
     {
-        // Слегка вправо
         SetManualTilt(0f, dodgeInitialAngle);
         yield return new WaitForSeconds(0.1f);
-
-        // Резко влево на максимальный угол
         SetManualTilt(0f, -maxTiltAngle);
         yield return new WaitForSeconds(0.2f);
-
         ResetTilt();
         currentActionCoroutine = null;
     }
 
-    // 3. Уклонение влево
     public void TriggerDodgeLeftTilt()
     {
         if (currentActionCoroutine != null)
@@ -150,11 +129,8 @@ public class FutuRiftCapsuleController : MonoBehaviour
 
     private IEnumerator DodgeLeftTiltCoroutine()
     {
-        // Слегка влево
         SetManualTilt(0f, -dodgeInitialAngle);
         yield return new WaitForSeconds(0.1f);
-
-        // Резко вправо на максимальный угол
         SetManualTilt(0f, maxTiltAngle);
         yield return new WaitForSeconds(0.2f);
 
@@ -162,17 +138,13 @@ public class FutuRiftCapsuleController : MonoBehaviour
         currentActionCoroutine = null;
     }
 
-    // 4. Ultimate - подъем вверх
     public void TriggerUltimateRiseTilt()
     {
         if (currentActionCoroutine != null)
             StopCoroutine(currentActionCoroutine);
-
-        // Наклон максимально назад
         SetManualTilt(-maxTiltAngle, 0f);
     }
 
-    // 5. Стабилизация на высоте
     public void TriggerUltimateStabilizeTilt()
     {
         ResetTilt();
@@ -182,8 +154,6 @@ public class FutuRiftCapsuleController : MonoBehaviour
             currentActionCoroutine = null;
         }
     }
-
-    // 6. Падение
     public void TriggerFallingTilt()
     {
         if (currentActionCoroutine != null)
@@ -194,11 +164,8 @@ public class FutuRiftCapsuleController : MonoBehaviour
 
     private IEnumerator FallingTiltCoroutine()
     {
-        // Резкий наклон вперед на максимальный угол
         SetManualTilt(maxTiltAngle, 0f);
         yield return new WaitForSeconds(0.3f);
-
-        // Резкий возврат назад
         SetManualTilt(-maxTiltAngle / 2, 0f);
         yield return new WaitForSeconds(0.2f);
 
@@ -206,7 +173,6 @@ public class FutuRiftCapsuleController : MonoBehaviour
         currentActionCoroutine = null;
     }
 
-    // 7. Попадание врага по игроку
     public void TriggerEnemyHitTilt()
     {
         if (currentActionCoroutine != null)
@@ -217,7 +183,6 @@ public class FutuRiftCapsuleController : MonoBehaviour
 
     private IEnumerator EnemyHitTiltCoroutine()
     {
-        // Наклон немного назад
         SetManualTilt(-enemyHitAngle, 0f);
         yield return new WaitForSeconds(0.25f);
 
@@ -225,7 +190,6 @@ public class FutuRiftCapsuleController : MonoBehaviour
         currentActionCoroutine = null;
     }
 
-    // 8. Ходьба робота
     public void StartWalkingTilt()
     {
         isWalkingAnimation = true;
@@ -248,30 +212,28 @@ public class FutuRiftCapsuleController : MonoBehaviour
     {
         walkTimer += Time.deltaTime;
         float cycleProgress = (walkTimer % walkCycleDuration) / walkCycleDuration;
-
-        // Циклическая анимация ходьбы робота
-        if (cycleProgress < 0.25f) // Фаза 1: Шаг правой ногой
+        if (cycleProgress < 0.25f)
         {
             float phaseProgress = cycleProgress / 0.25f;
             float pitch = Mathf.Lerp(0, walkForwardAngle, phaseProgress);
             float roll = Mathf.Lerp(0, walkSideAngle, phaseProgress);
             SetManualTilt(pitch, roll);
         }
-        else if (cycleProgress < 0.5f) // Фаза 2: Стабилизация
+        else if (cycleProgress < 0.5f)
         {
             float phaseProgress = (cycleProgress - 0.25f) / 0.25f;
             float pitch = Mathf.Lerp(walkForwardAngle, 0, phaseProgress);
             float roll = Mathf.Lerp(walkSideAngle, 0, phaseProgress);
             SetManualTilt(pitch, roll);
         }
-        else if (cycleProgress < 0.75f) // Фаза 3: Шаг левой ногой
+        else if (cycleProgress < 0.75f)
         {
             float phaseProgress = (cycleProgress - 0.5f) / 0.25f;
             float pitch = Mathf.Lerp(0, walkForwardAngle * 0.8f, phaseProgress);
             float roll = Mathf.Lerp(0, -walkSideAngle * 0.7f, phaseProgress);
             SetManualTilt(pitch, roll);
         }
-        else // Фаза 4: Стабилизация
+        else
         {
             float phaseProgress = (cycleProgress - 0.75f) / 0.25f;
             float pitch = Mathf.Lerp(walkForwardAngle * 0.8f, 0, phaseProgress);
@@ -279,8 +241,6 @@ public class FutuRiftCapsuleController : MonoBehaviour
             SetManualTilt(pitch, roll);
         }
     }
-
-    // ========== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ==========
 
     public void StopAllTilts()
     {
@@ -309,8 +269,6 @@ public class FutuRiftCapsuleController : MonoBehaviour
         _futuRiftController?.Stop();
         StopAllTilts();
     }
-
-    // Простая структура для отладки
     [System.Serializable]
     public struct TiltData
     {

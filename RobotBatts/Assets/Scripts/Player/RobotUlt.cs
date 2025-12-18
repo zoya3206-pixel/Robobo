@@ -15,7 +15,7 @@ public class RobotUltimateController : MonoBehaviour
     [SerializeField] private float riseTime = 2f;
     [SerializeField] private float fallTime = 2f;
     [SerializeField] private float waitTime = 1f;
-    [SerializeField] private float riseHeight = 4.3584f; // Высота подъема в метрах
+    [SerializeField] private float riseHeight = 4.3584f;
 
     [Header("Capsule Controller")]
     [SerializeField] private FutuRiftCapsuleController capsuleController;
@@ -28,8 +28,8 @@ public class RobotUltimateController : MonoBehaviour
     private float animationTimer = 0f;
     private float waitTimer = 0f;
 
-    private Vector3 startPosition; // Позиция в момент нажатия кнопки
-    private Vector3 targetPosition; // Целевая позиция (выше на riseHeight)
+    private Vector3 startPosition;
+    private Vector3 targetPosition;
 
     private void OnEnable()
     {
@@ -77,19 +77,12 @@ public class RobotUltimateController : MonoBehaviour
 
     private void StartUltimate()
     {
-        if (robotTransform == null)
-        {
-            Debug.LogError("Robot Transform не назначен!");
-            return;
-        }
-
         isUltimateActive = true;
         isRising = true;
         isFalling = false;
         isWaiting = false;
 
-        // Запоминаем текущую позицию и вычисляем целевую (просто выше по Y)
-        startPosition = robotTransform.position; // Используем world position
+        startPosition = robotTransform.position; 
         targetPosition = startPosition + Vector3.up * riseHeight;
 
         animationTimer = 0f;
@@ -101,7 +94,6 @@ public class RobotUltimateController : MonoBehaviour
         animationTimer += Time.deltaTime;
         float progress = Mathf.Clamp01(animationTimer / riseTime);
 
-        // Плавно поднимаем робота вверх от стартовой позиции
         robotTransform.position = Vector3.Lerp(startPosition, targetPosition, progress);
 
         if (animationTimer >= riseTime)
@@ -134,7 +126,6 @@ public class RobotUltimateController : MonoBehaviour
         animationTimer += Time.deltaTime;
         float progress = Mathf.Clamp01(animationTimer / fallTime);
 
-        // Плавно опускаем робота обратно к стартовой позиции
         robotTransform.position = Vector3.Lerp(targetPosition, startPosition, progress);
 
         if (animationTimer >= fallTime)

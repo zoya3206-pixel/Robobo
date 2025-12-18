@@ -24,6 +24,5 @@ public class PlayerHealth : MonoBehaviour
     private void Die()
     {
         Debug.Log("Игрок умер!");
-        // Твоя логика смерти игрока
     }
 }

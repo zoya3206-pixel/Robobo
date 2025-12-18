@@ -9,6 +9,9 @@ TagManager:
   - LeftController
   - RightController
   - Enemy
+  - Floor
+  - Wall
+  - EnemyBullet
   layers:
   - Default
   - TransparentFX

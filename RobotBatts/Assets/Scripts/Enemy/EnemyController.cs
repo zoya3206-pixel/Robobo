@@ -9,22 +9,36 @@ public class EnemyController : MonoBehaviour
     [SerializeField] private float startDelay = 5f;
     [SerializeField] private float moveSpeed = 3.5f;
     [SerializeField] private float rotationSpeed = 10f;
+    [SerializeField] private float backwardMoveSpeed = 2f;
+
+    [Header("Дистанции поведения")]
+    [SerializeField] private float meleeDangerRange = 2f;
+    [SerializeField] private float meleeComfortRange = 4f;
+    [SerializeField] private float optimalShootingRange = 8f;
+    [SerializeField] private float maxShootingRange = 15f;
 
     [Header("Боевые настройки")]
-    [SerializeField] private float shootingRange = 15f;
-    [SerializeField] private float stoppingDistance = 10f;
     [SerializeField] private float timeBetweenShots = 2f;
-    [SerializeField] private float retreatDistance = 25f;
-    [SerializeField] private int maxShotsBeforeRetreat = 3;
+    [SerializeField] private float retreatDistance = 10f; // Отходим на 10 метров
+    [SerializeField] private int minShotsBeforeRetreat = 2;
+    [SerializeField] private int maxShotsBeforeRetreat = 5;
+    [SerializeField] private float retreatWaitTime = 3f;
 
     [Header("Режим бешенства")]
     [SerializeField] private float berserkStartTime = 60f;
     [SerializeField] private float berserkDuration = 20f;
     [SerializeField] private float stunDuration = 20f;
-    [SerializeField] private float berserkRetreatDistance = 15f;
+    [SerializeField] private float berserkRetreatDistance = 6f;
 
-    [Header("Ожидание после отхода")]
-    [SerializeField] private float waitAfterRetreatTime = 10f;
+    [Header("Очередь стрельбы и анимация")]
+    [SerializeField] private int normalBurstCount = 3;
+    [SerializeField] private float burstInterval = 0.3f;
+    [SerializeField] private int berserkBurstCount = 6;
+    [SerializeField] private float aimingTime = 1f;
+
+    [Header("Проверка стен")]
+    [SerializeField] private float wallCheckDistance = 1.5f;
+    [SerializeField] private LayerMask wallLayerMask = ~0;
 
     // Компоненты
     private NavMeshAgent agent;
@@ -33,43 +47,45 @@ public class EnemyController : MonoBehaviour
     private EnemyHealth enemyHealth;
 
     // Состояния
-    private enum State { Idle, Chase, Shooting, Retreat, Wait, Berserk, Stun }
+    private enum State { Idle, Approach, Shooting, Retreating, Berserk, Stunned }
     private State currentState = State.Idle;
 
     // Переменные
     private bool gameStarted = false;
     private bool canShoot = true;
     private bool isBerserk = false;
-    private bool isStunned = false;
-    private int shotsFired = 0;
-    private float stateTimer = 0f;
-    private float waitTimer = 0f;
+    private bool isShootingBurst = false;
+    private int shotsToMakeBeforeRetreat;
+    private int shotsMadeInCurrentPhase;
+    private float lastShotTime = 0f;
+    private float stateEnterTime = 0f;
+    private Coroutine shootingCoroutine;
+
+    // Для отхода
+    private float retreatStartDistance;
+    private Vector3 retreatDirection;
 
     void Start()
     {
-        // Получаем компоненты
         agent = GetComponent<NavMeshAgent>();
         animator = GetComponentInChildren<Animator>();
         shooter = GetComponent<EnemyShooter>();
         enemyHealth = GetComponent<EnemyHealth>();
 
-        // Настраиваем агента
         agent.speed = moveSpeed;
-        agent.stoppingDistance = stoppingDistance;
         agent.angularSpeed = 360f;
         agent.acceleration = 8f;
         agent.updateRotation = false;
 
-        // Находим игрока если не назначен
         if (playerTarget == null)
         {
             GameObject player = GameObject.FindGameObjectWithTag("Player");
             if (player != null) playerTarget = player.transform;
         }
 
-        Debug.Log("Робот инициализирован. Начинаю задержку.");
+        shotsToMakeBeforeRetreat = Random.Range(minShotsBeforeRetreat, maxShotsBeforeRetreat + 1);
+        shotsMadeInCurrentPhase = 0;
 
-        // Запускаем корутины
         StartCoroutine(StartDelay());
         StartCoroutine(BerserkModeTimer());
     }
@@ -79,63 +95,30 @@ public class EnemyController : MonoBehaviour
         SetState(State.Idle);
         agent.isStopped = true;
 
-        // Сброс анимаций
-        if (animator != null)
-        {
-            animator.SetBool("IsWalking", false);
-            animator.SetBool("IsShooting", false);
-            animator.SetBool("IsStunned", false);
-        }
-
         yield return new WaitForSeconds(startDelay);
 
         gameStarted = true;
-        SetState(State.Chase);
+        SetState(State.Approach);
         agent.isStopped = false;
-
-        Debug.Log("Робот активирован, начинаю преследование.");
     }
 
     IEnumerator BerserkModeTimer()
     {
         yield return new WaitForSeconds(berserkStartTime);
 
-        // Включаем режим бешенства
         isBerserk = true;
         SetState(State.Berserk);
-        shooter.SetBerserkMode(true);
-        Debug.Log("РЕЖИМ БЕШЕНСТВА! 20 секунд непрерывного огня и отхода!");
+        if (shooter != null) shooter.SetBerserkMode(true);
 
-        // Бешенство длится berserkDuration секунд
         yield return new WaitForSeconds(berserkDuration);
 
-        // Выключаем бешенство, включаем оглушение
         isBerserk = false;
-        isStunned = true;
-        SetState(State.Stun);
-        shooter.SetBerserkMode(false);
-        Debug.Log($"Робот перегрелся. Оглушение на {stunDuration} секунд.");
+        if (shooter != null) shooter.SetBerserkMode(false);
+        SetState(State.Stunned);
 
-        // Включаем анимацию оглушения
-        if (animator != null)
-        {
-            animator.SetBool("IsStunned", true);
-            animator.SetBool("IsWalking", false);
-            animator.SetBool("IsShooting", false);
-        }
-
-        // Оглушение длится stunDuration секунд
         yield return new WaitForSeconds(stunDuration);
 
-        // Возвращаемся к нормальному режиму
-        isStunned = false;
-        if (animator != null)
-        {
-            animator.SetBool("IsStunned", false);
-        }
-
-        SetState(State.Chase);
-        Debug.Log("Робот пришел в себя. Возврат к обычному режиму.");
+        SetState(State.Approach);
     }
 
     void Update()
@@ -143,275 +126,364 @@ public class EnemyController : MonoBehaviour
         if (!gameStarted || playerTarget == null || enemyHealth.IsDead())
             return;
 
-        float distance = Vector3.Distance(transform.position, playerTarget.position);
-        stateTimer += Time.deltaTime;
+        float distanceToPlayer = Vector3.Distance(transform.position, playerTarget.position);
 
         switch (currentState)
         {
-            case State.Chase:
-                HandleChaseState(distance);
+            case State.Approach:
+                HandleApproachState(distanceToPlayer);
                 break;
 
             case State.Shooting:
-                HandleShootingState(distance);
+                HandleShootingState(distanceToPlayer);
                 break;
 
-            case State.Retreat:
-                HandleRetreatState(distance);
-                break;
-
-            case State.Wait:
-                HandleWaitState(distance);
+            case State.Retreating:
+                HandleRetreatingState(distanceToPlayer);
                 break;
 
             case State.Berserk:
-                HandleBerserkState(distance);
+                HandleBerserkState(distanceToPlayer);
                 break;
 
-            case State.Stun:
-                HandleStunState();
+            case State.Stunned:
+                HandleStunnedState();
                 break;
         }
 
         UpdateAnimation();
     }
 
-    void HandleChaseState(float distance)
+    void HandleApproachState(float distance)
     {
-        // Если игрок в зоне стрельбы - начинаем стрелять
-        if (distance <= shootingRange)
+        if (distance < meleeDangerRange)
+        {
+            EmergencyRetreat();
+            return;
+        }
+
+        if (distance <= meleeComfortRange && distance >= meleeDangerRange)
+        {
+            if (Random.value > 0.5f)
+            {
+                SetState(State.Shooting);
+            }
+            else
+            {
+                StartRetreat();
+            }
+            return;
+        }
+
+        if (distance <= optimalShootingRange && distance > meleeComfortRange)
         {
             SetState(State.Shooting);
             return;
         }
 
-        // Двигаемся к игроку
-        agent.isStopped = false;
-        agent.SetDestination(playerTarget.position);
-
-        // Поворачиваемся в направлении движения
-        if (agent.velocity.magnitude > 0.1f)
+        if (distance > optimalShootingRange)
         {
-            Vector3 direction = agent.velocity.normalized;
-            direction.y = 0;
-            if (direction != Vector3.zero)
-            {
-                Quaternion targetRotation = Quaternion.LookRotation(direction);
-                transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation,
-                    Time.deltaTime * rotationSpeed);
-            }
+            agent.isStopped = false;
+
+            Vector3 directionToPlayer = (playerTarget.position - transform.position).normalized;
+            Vector3 targetPosition = playerTarget.position - directionToPlayer * (optimalShootingRange - 1f);
+
+            agent.SetDestination(targetPosition);
+            RotateTowardsPlayer();
+        }
+        else
+        {
+            agent.isStopped = false;
+
+            Vector3 directionToPlayer = (playerTarget.position - transform.position).normalized;
+            Vector3 targetPosition = playerTarget.position - directionToPlayer * optimalShootingRange;
+
+            agent.SetDestination(targetPosition);
+            RotateTowardsPlayer();
         }
     }
 
     void HandleShootingState(float distance)
     {
-        // Останавливаем движение
+        if (distance < meleeDangerRange)
+        {
+            EmergencyRetreat();
+            return;
+        }
+
+        if (distance > maxShootingRange)
+        {
+            SetState(State.Approach);
+            return;
+        }
+
         agent.isStopped = true;
-
-        // Поворачиваемся к игроку
         RotateTowardsPlayer();
 
-        // Стреляем если можем
-        if (canShoot && distance <= shootingRange)
+        if (canShoot && Time.time - lastShotTime > timeBetweenShots && !isShootingBurst)
         {
-            StartCoroutine(ShootSequence());
+            shootingCoroutine = StartCoroutine(ShootBurst());
         }
 
-        // Если игрок убежал - преследуем
-        if (distance > shootingRange + 3f)
+        if (!isShootingBurst && shotsMadeInCurrentPhase >= shotsToMakeBeforeRetreat)
         {
-            SetState(State.Chase);
-        }
-
-        // Если выстрелили достаточно - отходим
-        if (shotsFired >= maxShotsBeforeRetreat)
-        {
-            StartRetreat();
+            if (distance < meleeComfortRange || Random.value > 0.7f)
+            {
+                StartRetreat();
+            }
+            else
+            {
+                shotsMadeInCurrentPhase = 0;
+                shotsToMakeBeforeRetreat = Random.Range(minShotsBeforeRetreat, maxShotsBeforeRetreat + 1);
+            }
         }
     }
 
-    void HandleRetreatState(float distance)
+    void HandleRetreatingState(float distance)
     {
-        // Во время отхода поворачиваемся к игроку
-        RotateTowardsPlayer();
-
-        // Проверяем, достигли ли точки отхода
-        if (!agent.pathPending && agent.remainingDistance <= agent.stoppingDistance)
+        // Проверяем, нет ли стены перед нами
+        if (CheckForWall())
         {
-            // Достигли точки отхода - начинаем ожидание
-            SetState(State.Wait);
-            waitTimer = 0f;
+            // Стена обнаружена - прекращаем отход
             agent.isStopped = true;
-            Debug.Log("Робот достиг точки отхода. Ожидание 10 секунд.");
+
+            // Ждем немного, затем переходим в состояние стрельбы
+            if (Time.time - stateEnterTime > 1f)
+            {
+                SetState(State.Shooting);
+                shotsMadeInCurrentPhase = 0;
+            }
+            return;
         }
 
-        // Можем стрелять во время отхода (опционально)
-        if (canShoot && distance <= shootingRange)
+        // Проверяем, прошли ли мы достаточно далеко
+        float distanceTraveled = Vector3.Distance(transform.position,
+            transform.position - retreatDirection * retreatStartDistance);
+
+        if (distanceTraveled >= retreatDistance ||
+            (!agent.pathPending && agent.remainingDistance <= agent.stoppingDistance))
         {
-            StartCoroutine(RetreatShootSequence());
+            // Достигли точки отхода или прошли нужное расстояние
+            agent.isStopped = true;
+
+            // Ждем некоторое время на позиции
+            if (Time.time - stateEnterTime > retreatWaitTime)
+            {
+                // Проверяем дистанцию до игрока
+                if (distance > meleeComfortRange)
+                {
+                    SetState(State.Approach);
+                    shotsMadeInCurrentPhase = 0;
+                    shotsToMakeBeforeRetreat = Random.Range(minShotsBeforeRetreat, maxShotsBeforeRetreat + 1);
+                }
+                else
+                {
+                    // Игрок всё ещё близко - отходим дальше
+                    StartRetreat();
+                }
+            }
         }
-    }
-
-    void HandleWaitState(float distance)
-    {
-        // Стоим на месте и поворачиваемся к игроку
-        RotateTowardsPlayer();
-
-        // Увеличиваем таймер ожидания
-        waitTimer += Time.deltaTime;
-
-        // Если время ожидания прошло, сбрасываем счетчик выстрелов и снова преследуем
-        if (waitTimer >= waitAfterRetreatTime)
+        else
         {
-            shotsFired = 0;
-            SetState(State.Chase);
+            // Продолжаем отход
             agent.isStopped = false;
-            Debug.Log("Ожидание завершено. Возвращаюсь к преследованию.");
         }
+
+        // Во время отхода смотрим на игрока
+        RotateTowardsPlayer();
     }
 
     void HandleBerserkState(float distance)
     {
-        // В режиме бешенства постоянно отходим от игрока и непрерывно стреляем
+        // В режиме бешенства просто отходим и стреляем часто
 
-        // Отходим от игрока
-        Vector3 retreatDir = (transform.position - playerTarget.position).normalized;
-        Vector3 retreatPos = transform.position + retreatDir * berserkRetreatDistance;
-
-        // Ищем валидную позицию на навмеше
-        NavMeshHit hit;
-        if (NavMesh.SamplePosition(retreatPos, out hit, 10f, NavMesh.AllAreas))
+        if (distance < meleeDangerRange * 1.5f)
         {
+            // Отходим от слишком близкого игрока
+            Vector3 retreatDir = (transform.position - playerTarget.position).normalized;
+            Vector3 retreatPos = transform.position + retreatDir * berserkRetreatDistance;
+
+            NavMeshHit hit;
+            if (NavMesh.SamplePosition(retreatPos, out hit, 10f, NavMesh.AllAreas))
+            {
+                agent.isStopped = false;
+                agent.SetDestination(hit.position);
+            }
+        }
+        else if (distance > optimalShootingRange)
+        {
+            // Приближаемся к игроку
             agent.isStopped = false;
-            agent.SetDestination(hit.position);
+
+            Vector3 directionToPlayer = (playerTarget.position - transform.position).normalized;
+            Vector3 targetPosition = playerTarget.position - directionToPlayer * optimalShootingRange;
+
+            agent.SetDestination(targetPosition);
+        }
+        else
+        {
+            // На оптимальной дистанции - просто стоим и стреляем
+            agent.isStopped = true;
         }
 
-        // Поворачиваемся к игроку
         RotateTowardsPlayer();
 
-        // Непрерывно стреляем
-        if (canShoot)
+        if (canShoot && Time.time - lastShotTime > 1f && !isShootingBurst)
         {
-            StartCoroutine(BerserkShootSequence());
+            shootingCoroutine = StartCoroutine(ShootBurst());
         }
     }
 
-    void HandleStunState()
+    void HandleStunnedState()
     {
-        // В состоянии оглушения стоим на месте
         agent.isStopped = true;
 
-        // Не двигаемся и не стреляем
-        // Анимация оглушения управляется через IsStunned
+        if (animator != null)
+        {
+            animator.SetBool("IsStunned", true);
+            animator.SetBool("IsWalking", false);
+            animator.SetBool("IsShooting", false);
+        }
     }
 
-    IEnumerator ShootSequence()
+    IEnumerator ShootBurst()
     {
+        isShootingBurst = true;
         canShoot = false;
 
-        // Включаем анимацию стрельбы
         if (animator != null)
         {
             animator.SetBool("IsShooting", true);
         }
 
-        // Выстрел
-        if (shooter != null) shooter.Shoot();
-        shotsFired++;
+        yield return new WaitForSeconds(aimingTime);
 
-        // Ждем завершения анимации
-        yield return new WaitForSeconds(0.5f);
+        int burstCount = isBerserk ? berserkBurstCount : normalBurstCount;
 
-        // Выключаем анимацию стрельбы
+        for (int i = 0; i < burstCount; i++)
+        {
+            if (enemyHealth.IsDead() || playerTarget == null)
+                break;
+
+            float distance = Vector3.Distance(transform.position, playerTarget.position);
+            if (distance < meleeDangerRange)
+                break;
+
+            if (shooter != null)
+            {
+                shooter.Shoot();
+                shotsMadeInCurrentPhase++;
+                lastShotTime = Time.time;
+            }
+
+            if (i < burstCount - 1)
+                yield return new WaitForSeconds(burstInterval);
+        }
+
+        float shootingTime = (burstCount - 1) * burstInterval;
+        float remainingAnimationTime = 1.5f - shootingTime;
+
+        if (remainingAnimationTime > 0)
+            yield return new WaitForSeconds(remainingAnimationTime);
+
         if (animator != null)
         {
             animator.SetBool("IsShooting", false);
         }
 
-        // Ждем между выстрелами
-        float waitTime = isBerserk ? 0.1f : timeBetweenShots;
-        yield return new WaitForSeconds(waitTime);
+        isShootingBurst = false;
 
-        canShoot = true;
-    }
-
-    IEnumerator RetreatShootSequence()
-    {
-        canShoot = false;
-
-        // Включаем анимацию стрельбы при отходе
-        if (animator != null)
+        float waitTime = isBerserk ? 0.5f : timeBetweenShots;
+        float timeAlreadyPassed = aimingTime + shootingTime + (remainingAnimationTime > 0 ? remainingAnimationTime : 0);
+        if (waitTime > timeAlreadyPassed)
         {
-            animator.SetBool("IsShooting", true);
+            yield return new WaitForSeconds(waitTime - timeAlreadyPassed);
         }
-
-        // Выстрел
-        if (shooter != null) shooter.Shoot();
-
-        // Ждем завершения анимации
-        yield return new WaitForSeconds(0.5f);
-
-        // Выключаем анимацию стрельбы
-        if (animator != null)
-        {
-            animator.SetBool("IsShooting", false);
-        }
-
-        // В режиме отхода стреляем реже
-        yield return new WaitForSeconds(1.5f);
-
-        canShoot = true;
-    }
-
-    IEnumerator BerserkShootSequence()
-    {
-        canShoot = false;
-
-        // Включаем анимацию стрельбы
-        if (animator != null)
-        {
-            animator.SetBool("IsShooting", true);
-        }
-
-        // Выстрел
-        if (shooter != null) shooter.Shoot();
-
-        // В режиме бешенства стреляем очень часто, но делаем небольшую паузу для анимации
-        yield return new WaitForSeconds(0.3f);
-
-        // Выключаем анимацию стрельбы на короткое время
-        if (animator != null)
-        {
-            animator.SetBool("IsShooting", false);
-        }
-
-        // Очень короткая пауза между выстрелами в режиме бешенства
-        yield return new WaitForSeconds(0.1f);
 
         canShoot = true;
     }
 
     void StartRetreat()
     {
-        SetState(State.Retreat);
+        SetState(State.Retreating);
+        stateEnterTime = Time.time;
 
-        // Отходим назад от игрока
-        Vector3 retreatDir = (transform.position - playerTarget.position).normalized;
-        Vector3 retreatPos = transform.position + retreatDir * retreatDistance;
+        // Сохраняем начальную дистанцию и направление отхода
+        retreatStartDistance = Vector3.Distance(transform.position, playerTarget.position);
+        retreatDirection = (transform.position - playerTarget.position).normalized;
+        retreatDirection.y = 0;
 
-        // Ищем валидную позицию на навмеше
+        // Вычисляем точку отхода
+        Vector3 retreatPos = transform.position + retreatDirection * retreatDistance;
+
+        // Ищем валидную позицию на NavMesh
         NavMeshHit hit;
         if (NavMesh.SamplePosition(retreatPos, out hit, 10f, NavMesh.AllAreas))
         {
             agent.isStopped = false;
             agent.SetDestination(hit.position);
-            Debug.Log($"Робот отступает на {retreatDistance} единиц!");
         }
         else
         {
-            // Если не нашли - отходим на меньшее расстояние
-            agent.SetDestination(transform.position + retreatDir * 10f);
+            // Если не нашли, пытаемся найти ближайшую точку
+            retreatPos = transform.position + retreatDirection * (retreatDistance * 0.5f);
+            if (NavMesh.SamplePosition(retreatPos, out hit, 10f, NavMesh.AllAreas))
+            {
+                agent.isStopped = false;
+                agent.SetDestination(hit.position);
+            }
         }
+    }
+
+    void EmergencyRetreat()
+    {
+        SetState(State.Retreating);
+        stateEnterTime = Time.time;
+
+        // Экстренный отход - быстрее и дальше
+        retreatStartDistance = Vector3.Distance(transform.position, playerTarget.position);
+        retreatDirection = (transform.position - playerTarget.position).normalized;
+        retreatDirection.y = 0;
+
+        Vector3 retreatPos = transform.position + retreatDirection * (retreatDistance * 1.5f);
+
+        NavMeshHit hit;
+        if (NavMesh.SamplePosition(retreatPos, out hit, 10f, NavMesh.AllAreas))
+        {
+            agent.isStopped = false;
+            agent.SetDestination(hit.position);
+        }
+
+        if (shootingCoroutine != null)
+        {
+            StopCoroutine(shootingCoroutine);
+            isShootingBurst = false;
+            canShoot = true;
+
+            if (animator != null)
+            {
+                animator.SetBool("IsShooting", false);
+            }
+        }
+    }
+
+    bool CheckForWall()
+    {
+        // Проверяем, есть ли стена перед нами
+        Vector3 rayDirection = retreatDirection != Vector3.zero ?
+            retreatDirection : transform.forward;
+
+        RaycastHit hit;
+        if (Physics.Raycast(transform.position + Vector3.up * 0.5f,
+            rayDirection, out hit, wallCheckDistance, wallLayerMask))
+        {
+            if (hit.collider.CompareTag("Wall"))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     void RotateTowardsPlayer()
@@ -421,7 +493,7 @@ public class EnemyController : MonoBehaviour
         Vector3 direction = playerTarget.position - transform.position;
         direction.y = 0;
 
-        if (direction != Vector3.zero)
+        if (direction.magnitude > 0.1f)
         {
             Quaternion targetRotation = Quaternion.LookRotation(direction);
             transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation,
@@ -434,14 +506,32 @@ public class EnemyController : MonoBehaviour
         if (currentState == newState) return;
 
         currentState = newState;
-        Debug.Log($"Новое состояние: {currentState}");
+        stateEnterTime = Time.time;
 
-        // Сбрасываем анимации при смене состояния (кроме оглушения)
-        if (animator != null && newState != State.Stun)
+        if (animator != null)
         {
             animator.SetBool("IsWalking", false);
             animator.SetBool("IsShooting", false);
-            animator.SetBool("IsStunned", false);
+
+            if (newState != State.Stunned)
+            {
+                animator.SetBool("IsStunned", false);
+            }
+        }
+
+        if (newState == State.Retreating)
+        {
+            shotsMadeInCurrentPhase = 0;
+        }
+
+        if (newState != State.Shooting && newState != State.Berserk)
+        {
+            if (shootingCoroutine != null)
+            {
+                StopCoroutine(shootingCoroutine);
+                isShootingBurst = false;
+                canShoot = true;
+            }
         }
     }
 
@@ -449,33 +539,18 @@ public class EnemyController : MonoBehaviour
     {
         if (animator == null) return;
 
-        // Определяем движение по скорости агента
-        bool isMoving = agent.velocity.magnitude > 0.1f;
+        bool isMoving = agent.velocity.magnitude > 0.3f && !agent.isStopped;
 
-        switch (currentState)
+        if (currentState != State.Stunned && !animator.GetBool("IsShooting"))
         {
-            case State.Chase:
+            if (currentState == State.Retreating && isMoving)
+            {
+                animator.SetBool("IsWalking", true);
+            }
+            else if (currentState != State.Retreating)
+            {
                 animator.SetBool("IsWalking", isMoving);
-                break;
-
-            case State.Retreat:
-            case State.Berserk:
-                animator.SetBool("IsWalking", isMoving);
-                break;
-
-            case State.Shooting:
-                // Анимация стрельбы управляется в корутинах
-                break;
-
-            case State.Wait:
-            case State.Idle:
-                animator.SetBool("IsWalking", false);
-                animator.SetBool("IsStunned", false);
-                break;
-
-            case State.Stun:
-                // Анимация оглушения уже включена
-                break;
+            }
         }
     }
 }

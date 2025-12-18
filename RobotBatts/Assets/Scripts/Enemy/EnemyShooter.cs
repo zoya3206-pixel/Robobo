@@ -3,19 +3,33 @@ using UnityEngine;
 public class EnemyShooter : MonoBehaviour
 {
     [Header("Настройки стрельбы")]
-    public GameObject bulletPrefab;
-    public Transform firePoint;
-    public float bulletSpeed = 20f;
+    public GameObject bulletPrefab; // Изменил на public
+    public Transform firePoint;     // Изменил на public
+    public float bulletSpeed = 25f;
 
     [Header("Урон (баланс для 5-минутного боя)")]
-    public float normalDamage = 5f;       // Маленький урон для долгого боя
-    public float berserkDamage = 5f;      // В бешенстве урон ещё меньше (но стреляет чаще)
+    public float normalDamage = 5f;
+    public float berserkDamage = 5f;
 
     [Header("Время жизни пуль")]
-    public float normalBulletLife = 3f;
-    public float berserkBulletLife = 0.5f;
+    public float normalBulletLife = 5f;
+    public float berserkBulletLife = 3f;
 
     private bool isBerserk = false;
+
+    void Start()
+    {
+        // Проверка назначения компонентов при старте
+        if (bulletPrefab == null)
+        {
+            Debug.LogError($"Не назначен префаб пули на {gameObject.name}! Пожалуйста, назначьте префаб пули в инспекторе.", this);
+        }
+
+        if (firePoint == null)
+        {
+            Debug.LogError($"Не назначена точка выстрела на {gameObject.name}! Пожалуйста, назначьте Transform точки выстрела.", this);
+        }
+    }
 
     public void SetBerserkMode(bool berserk)
     {
@@ -25,9 +39,16 @@ public class EnemyShooter : MonoBehaviour
 
     public void Shoot()
     {
-        if (bulletPrefab == null || firePoint == null)
+        // Проверяем наличие необходимых компонентов
+        if (bulletPrefab == null)
         {
-            Debug.LogError("Не назначены префаб пули или точка выстрела!");
+            Debug.LogError($"Не назначен префаб пули на {gameObject.name}! Пожалуйста, назначьте префаб пули в инспекторе.", this);
+            return;
+        }
+
+        if (firePoint == null)
+        {
+            Debug.LogError($"Не назначена точка выстрела на {gameObject.name}! Пожалуйста, назначьте Transform точки выстрела.", this);
             return;
         }
 
@@ -42,30 +63,30 @@ public class EnemyShooter : MonoBehaviour
         }
         else
         {
-            Debug.LogError("У пули нет Rigidbody!");
+            Debug.LogError($"У префаба пули {bulletPrefab.name} нет компонента Rigidbody! Добавьте Rigidbody к префабу пули.", this);
+            Destroy(bullet);
             return;
         }
 
-        // Назначаем урон (в зависимости от режима)
+        // Назначаем урон
         EnemyBullet bulletScript = bullet.GetComponent<EnemyBullet>();
         if (bulletScript != null)
         {
             float damage = isBerserk ? berserkDamage : normalDamage;
             bulletScript.damage = damage;
 
-            // Можно добавить дебаг
-            if (isBerserk && Random.value < 0.1f) // 10% шанс логгирования в бешенстве
+            // Назначаем время жизни пули
+            bulletScript.SetLifeTime(isBerserk ? berserkBulletLife : normalBulletLife);
+
+            // Дебаг
+            if (isBerserk && Random.value < 0.1f)
             {
-                Debug.Log($"Бешеная пуля! Урон: {damage}");
+                Debug.Log($"Бешеная пуля! Урон: {damage}, Время жизни: {(isBerserk ? berserkBulletLife : normalBulletLife)}с");
             }
         }
         else
         {
-            Debug.LogError("У пули нет скрипта EnemyBullet!");
+            Debug.LogError($"У префаба пули {bulletPrefab.name} нет скрипта EnemyBullet! Добавьте компонент EnemyBullet к префабу пули.", this);
         }
-
-        // Уничтожаем в зависимости от режима
-        float lifeTime = isBerserk ? berserkBulletLife : normalBulletLife;
-        Destroy(bullet, lifeTime);
     }
 }

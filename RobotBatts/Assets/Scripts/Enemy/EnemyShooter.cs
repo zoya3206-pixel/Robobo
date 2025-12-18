@@ -3,35 +3,38 @@ using UnityEngine;
 public class EnemyShooter : MonoBehaviour
 {
     [Header("Настройки стрельбы")]
-    [SerializeField] private GameObject bulletPrefab;
-    [SerializeField] private Transform firePoint;
-    [SerializeField] private float bulletSpeed = 20f;
-    [SerializeField] private float bulletDamage = 10f;
+    public GameObject bulletPrefab;
+    public Transform firePoint;
+    public float bulletSpeed = 20f;
+
+    [Header("Урон (баланс для 5-минутного боя)")]
+    public float normalDamage = 5f;       // Маленький урон для долгого боя
+    public float berserkDamage = 5f;      // В бешенстве урон ещё меньше (но стреляет чаще)
 
     [Header("Время жизни пуль")]
-    [SerializeField] private float normalBulletLifetime = 3f;
-    [SerializeField] private float berserkBulletLifetime = 0.1f; // ОЧЕНЬ быстро исчезают в режиме бешенства
+    public float normalBulletLife = 3f;
+    public float berserkBulletLife = 0.5f;
 
     private bool isBerserk = false;
 
     public void SetBerserkMode(bool berserk)
     {
         isBerserk = berserk;
-        Debug.Log("Режим стрельбы: " + (berserk ? "БЕШЕНСТВО" : "НОРМАЛЬНЫЙ"));
+        Debug.Log($"Режим бешенства: {berserk}, Урон: {(berserk ? berserkDamage : normalDamage)}");
     }
 
     public void Shoot()
     {
         if (bulletPrefab == null || firePoint == null)
         {
-            Debug.LogError("Не присвоен префаб пули или точка выстрела!");
+            Debug.LogError("Не назначены префаб пули или точка выстрела!");
             return;
         }
 
-        // Создаём пулю
+        // Создаем пулю
         GameObject bullet = Instantiate(bulletPrefab, firePoint.position, firePoint.rotation);
 
-        // Придаём скорость
+        // Задаем скорость
         Rigidbody rb = bullet.GetComponent<Rigidbody>();
         if (rb != null)
         {
@@ -40,27 +43,29 @@ public class EnemyShooter : MonoBehaviour
         else
         {
             Debug.LogError("У пули нет Rigidbody!");
+            return;
         }
 
-        // Настраиваем урон пули
+        // Назначаем урон (в зависимости от режима)
         EnemyBullet bulletScript = bullet.GetComponent<EnemyBullet>();
         if (bulletScript != null)
         {
-            bulletScript.SetDamage(bulletDamage);
+            float damage = isBerserk ? berserkDamage : normalDamage;
+            bulletScript.damage = damage;
+
+            // Можно добавить дебаг
+            if (isBerserk && Random.value < 0.1f) // 10% шанс логгирования в бешенстве
+            {
+                Debug.Log($"Бешеная пуля! Урон: {damage}");
+            }
         }
         else
         {
-            Debug.LogError("У префаба пули нет скрипта EnemyBullet!");
+            Debug.LogError("У пули нет скрипта EnemyBullet!");
         }
 
-        // Уничтожаем пулю в зависимости от режима
-        float lifetime = isBerserk ? berserkBulletLifetime : normalBulletLifetime;
-        Destroy(bullet, lifetime);
-
-        // Опционально: для отладки
-        if (isBerserk)
-        {
-            Debug.Log($"Пуля создана. Время жизни: {lifetime} сек (БЕШЕНСТВО)");
-        }
+        // Уничтожаем в зависимости от режима
+        float lifeTime = isBerserk ? berserkBulletLife : normalBulletLife;
+        Destroy(bullet, lifeTime);
     }
 }

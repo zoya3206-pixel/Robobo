@@ -3,32 +3,40 @@ using UnityEngine.AI;
 
 public class EnemyHealth : MonoBehaviour
 {
-    [Header("Настройки здоровья")]
-    [SerializeField] private float maxHealth = 100f;
-    private float currentHealth;
+    [Header("Здоровье (баланс для 5-минутного боя)")]
+    [SerializeField] private float maxHealth = 1000f; // Больше здоровья для долгого боя
 
+    private float currentHealth;
     private Animator animator;
-    private EnemyAI enemyAI;
     private bool isDead = false;
 
     void Start()
     {
         currentHealth = maxHealth;
-        animator = GetComponent<Animator>();
-        enemyAI = GetComponent<EnemyAI>();
 
-        if (animator == null) Debug.LogError("Animator не найден!");
+        // Ищем аниматор в дочерних объектах
+        animator = GetComponentInChildren<Animator>();
+
+        if (animator == null)
+        {
+            Debug.LogError("Animator не найден!");
+        }
+
+        Debug.Log($"Робот: здоровье {currentHealth}/{maxHealth}");
     }
 
-    public void TakeDamage(float damageAmount)
+    public void TakeDamage(float damage)
     {
-        if (currentHealth <= 0 || isDead) return;
+        if (isDead) return;
 
-        currentHealth -= damageAmount;
-        Debug.Log("Робот получил урон! Осталось здоровья: " + currentHealth);
+        currentHealth -= damage;
+        Debug.Log($"Робот получил {damage} урона. Осталось: {currentHealth}");
 
-        // Проигрываем анимацию получения урона
-        animator.SetTrigger("TakeDamage");
+        // Анимация получения урона (только если урон значительный)
+        if (animator != null && damage > maxHealth * 0.05f) // 5% от макс. здоровья
+        {
+            animator.SetTrigger("TakeDamage");
+        }
 
         if (currentHealth <= 0)
         {
@@ -38,42 +46,48 @@ public class EnemyHealth : MonoBehaviour
 
     void Die()
     {
-        if (isDead) return;
         isDead = true;
-
         Debug.Log("Робот уничтожен!");
-        animator.SetBool("IsDead", true);
 
-        // Отключаем AI и компоненты
-        if (enemyAI != null)
+        // Анимация смерти
+        if (animator != null)
         {
-            enemyAI.enabled = false;
-            enemyAI.StopAllCoroutines();
+            animator.SetBool("IsDead", true);
+            animator.SetBool("IsWalking", false);
+            animator.SetBool("IsShooting", false);
         }
 
-        NavMeshAgent agent = GetComponent<NavMeshAgent>();
+        // Отключаем всё
+        var controller = GetComponent<EnemyController>();
+        if (controller != null) controller.enabled = false;
+
+        var agent = GetComponent<NavMeshAgent>();
         if (agent != null) agent.enabled = false;
 
-        CapsuleCollider collider = GetComponent<CapsuleCollider>();
+        var shooter = GetComponent<EnemyShooter>();
+        if (shooter != null) shooter.enabled = false;
+
+        var collider = GetComponent<Collider>();
         if (collider != null) collider.enabled = false;
 
-        Rigidbody rb = GetComponent<Rigidbody>();
+        var rb = GetComponent<Rigidbody>();
         if (rb != null)
         {
             rb.isKinematic = true;
             rb.useGravity = false;
         }
 
-        // Отключаем стрельбу
-        EnemyShooter shooter = GetComponent<EnemyShooter>();
-        if (shooter != null) shooter.enabled = false;
-
-        // ВАЖНО: НИКАКОГО Destroy() НЕ ДОЛЖНО БЫТЬ!
-        Debug.Log("Робот остался на сцене для анимации смерти");
+        // Через 5 секунд можно уничтожить или оставить для анимации
+        // Destroy(gameObject, 5f);
     }
 
     public bool IsDead()
     {
         return isDead;
+    }
+
+    public float GetHealthPercentage()
+    {
+        return currentHealth / maxHealth;
     }
 }

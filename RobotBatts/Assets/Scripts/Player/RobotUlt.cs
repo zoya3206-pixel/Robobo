@@ -15,10 +15,7 @@ public class RobotUltimateController : MonoBehaviour
     [SerializeField] private float riseTime = 2f;
     [SerializeField] private float fallTime = 2f;
     [SerializeField] private float waitTime = 1f;
-
-    [Header("Position Settings")]
-    [SerializeField] private Vector3 idlePosition = new Vector3(1.97040009f, 3.00159979f, -18.0083008f);
-    [SerializeField] private Vector3 ultimatePosition = new Vector3(1.97040009f, 7.36000013f, -18.0083008f);
+    [SerializeField] private float riseHeight = 4.3584f; // Высота подъема в метрах
 
     [Header("Capsule Controller")]
     [SerializeField] private FutuRiftCapsuleController capsuleController;
@@ -31,17 +28,8 @@ public class RobotUltimateController : MonoBehaviour
     private float animationTimer = 0f;
     private float waitTimer = 0f;
 
-    private void Awake()
-    {
-        if (robotTransform != null)
-        {
-            if (idlePosition == Vector3.zero)
-                idlePosition = robotTransform.localPosition;
-
-            if (ultimatePosition == Vector3.zero)
-                ultimatePosition = idlePosition + Vector3.up * 4.3584f;
-        }
-    }
+    private Vector3 startPosition; // Позиция в момент нажатия кнопки
+    private Vector3 targetPosition; // Целевая позиция (выше на riseHeight)
 
     private void OnEnable()
     {
@@ -89,10 +77,21 @@ public class RobotUltimateController : MonoBehaviour
 
     private void StartUltimate()
     {
+        if (robotTransform == null)
+        {
+            Debug.LogError("Robot Transform не назначен!");
+            return;
+        }
+
         isUltimateActive = true;
         isRising = true;
         isFalling = false;
         isWaiting = false;
+
+        // Запоминаем текущую позицию и вычисляем целевую (просто выше по Y)
+        startPosition = robotTransform.position; // Используем world position
+        targetPosition = startPosition + Vector3.up * riseHeight;
+
         animationTimer = 0f;
         waitTimer = 0f;
     }
@@ -102,19 +101,15 @@ public class RobotUltimateController : MonoBehaviour
         animationTimer += Time.deltaTime;
         float progress = Mathf.Clamp01(animationTimer / riseTime);
 
-        if (robotTransform != null)
-        {
-            robotTransform.localPosition = Vector3.Lerp(idlePosition, ultimatePosition, progress);
-        }
+        // Плавно поднимаем робота вверх от стартовой позиции
+        robotTransform.position = Vector3.Lerp(startPosition, targetPosition, progress);
 
         if (animationTimer >= riseTime)
         {
-            if (robotTransform != null)
-            {
-                robotTransform.localPosition = ultimatePosition;
-                BhapticsLibrary.Play("ultimate");
-                capsuleController?.TriggerUltimateRiseTilt();
-            }
+            robotTransform.position = targetPosition;
+            BhapticsLibrary.Play("ultimate");
+            capsuleController?.TriggerUltimateRiseTilt();
+
             isRising = false;
             isWaiting = true;
             animationTimer = 0f;
@@ -139,22 +134,22 @@ public class RobotUltimateController : MonoBehaviour
         animationTimer += Time.deltaTime;
         float progress = Mathf.Clamp01(animationTimer / fallTime);
 
-        if (robotTransform != null)
-        {
-            robotTransform.localPosition = Vector3.Lerp(ultimatePosition, idlePosition, progress);
-        }
+        // Плавно опускаем робота обратно к стартовой позиции
+        robotTransform.position = Vector3.Lerp(targetPosition, startPosition, progress);
 
         if (animationTimer >= fallTime)
         {
-            if (robotTransform != null)
-            {
-                robotTransform.localPosition = idlePosition;
-            }
+            robotTransform.position = startPosition;
             isFalling = false;
             isUltimateActive = false;
             animationTimer = 0f;
             capsuleController?.TriggerFallingTilt();
-            Invoke("capsuleController?.StopAllTilts()", 2f);
+            Invoke(nameof(StopAllTilts), 2f);
         }
+    }
+
+    private void StopAllTilts()
+    {
+        capsuleController?.StopAllTilts();
     }
 }

@@ -13,7 +13,6 @@ public class PlayerHealth : MonoBehaviour
     public void TakeDamage(float damage)
     {
         currentHealth -= damage;
-        Debug.Log($"Игрок получил {damage} урона. Осталось HP: {currentHealth}");
 
         if (currentHealth <= 0)
         {
@@ -23,6 +22,10 @@ public class PlayerHealth : MonoBehaviour
 
     private void Die()
     {
-        Debug.Log("Игрок умер!");
+        GameManager gameManager = FindObjectOfType<GameManager>();
+        if (gameManager != null)
+        {
+            gameManager.PlayerDied();
+        }
     }
 }

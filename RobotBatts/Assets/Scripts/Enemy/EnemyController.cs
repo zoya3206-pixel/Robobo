@@ -9,7 +9,6 @@ public class EnemyController : MonoBehaviour
     [SerializeField] private float startDelay = 5f;
     [SerializeField] private float moveSpeed = 3.5f;
     [SerializeField] private float rotationSpeed = 10f;
-    [SerializeField] private float backwardMoveSpeed = 2f;
 
     [Header("Дистанции поведения")]
     [SerializeField] private float meleeDangerRange = 2f;
@@ -19,7 +18,7 @@ public class EnemyController : MonoBehaviour
 
     [Header("Боевые настройки")]
     [SerializeField] private float timeBetweenShots = 2f;
-    [SerializeField] private float retreatDistance = 10f; // Отходим на 10 метров
+    [SerializeField] private float retreatDistance = 10f;
     [SerializeField] private int minShotsBeforeRetreat = 2;
     [SerializeField] private int maxShotsBeforeRetreat = 5;
     [SerializeField] private float retreatWaitTime = 3f;
@@ -40,28 +39,25 @@ public class EnemyController : MonoBehaviour
     [SerializeField] private float wallCheckDistance = 1.5f;
     [SerializeField] private LayerMask wallLayerMask = ~0;
 
-    // Компоненты
     private NavMeshAgent agent;
     private Animator animator;
     private EnemyShooter shooter;
     private EnemyHealth enemyHealth;
 
-    // Состояния
-    private enum State { Idle, Approach, Shooting, Retreating, Berserk, Stunned }
+    private enum State { Idle, Approach, Shooting, Retreating, Berserk, Stun }
     private State currentState = State.Idle;
 
-    // Переменные
     private bool gameStarted = false;
     private bool canShoot = true;
     private bool isBerserk = false;
     private bool isShootingBurst = false;
+    private bool isStunned = false;
     private int shotsToMakeBeforeRetreat;
     private int shotsMadeInCurrentPhase;
     private float lastShotTime = 0f;
     private float stateEnterTime = 0f;
     private Coroutine shootingCoroutine;
 
-    // Для отхода
     private float retreatStartDistance;
     private Vector3 retreatDirection;
 
@@ -108,16 +104,18 @@ public class EnemyController : MonoBehaviour
 
         isBerserk = true;
         SetState(State.Berserk);
-        if (shooter != null) shooter.SetBerserkMode(true);
+        shooter.SetBerserkMode(true);
 
         yield return new WaitForSeconds(berserkDuration);
 
         isBerserk = false;
-        if (shooter != null) shooter.SetBerserkMode(false);
-        SetState(State.Stunned);
+        shooter.SetBerserkMode(false);
+        isStunned = true;
+        SetState(State.Stun);
 
         yield return new WaitForSeconds(stunDuration);
 
+        isStunned = false;
         SetState(State.Approach);
     }
 
@@ -146,8 +144,8 @@ public class EnemyController : MonoBehaviour
                 HandleBerserkState(distanceToPlayer);
                 break;
 
-            case State.Stunned:
-                HandleStunnedState();
+            case State.Stun:
+                HandleStunState();
                 break;
         }
 
@@ -241,13 +239,10 @@ public class EnemyController : MonoBehaviour
 
     void HandleRetreatingState(float distance)
     {
-        // Проверяем, нет ли стены перед нами
         if (CheckForWall())
         {
-            // Стена обнаружена - прекращаем отход
             agent.isStopped = true;
 
-            // Ждем немного, затем переходим в состояние стрельбы
             if (Time.time - stateEnterTime > 1f)
             {
                 SetState(State.Shooting);
@@ -256,20 +251,16 @@ public class EnemyController : MonoBehaviour
             return;
         }
 
-        // Проверяем, прошли ли мы достаточно далеко
         float distanceTraveled = Vector3.Distance(transform.position,
             transform.position - retreatDirection * retreatStartDistance);
 
         if (distanceTraveled >= retreatDistance ||
             (!agent.pathPending && agent.remainingDistance <= agent.stoppingDistance))
         {
-            // Достигли точки отхода или прошли нужное расстояние
             agent.isStopped = true;
 
-            // Ждем некоторое время на позиции
             if (Time.time - stateEnterTime > retreatWaitTime)
             {
-                // Проверяем дистанцию до игрока
                 if (distance > meleeComfortRange)
                 {
                     SetState(State.Approach);
@@ -278,28 +269,22 @@ public class EnemyController : MonoBehaviour
                 }
                 else
                 {
-                    // Игрок всё ещё близко - отходим дальше
                     StartRetreat();
                 }
             }
         }
         else
         {
-            // Продолжаем отход
             agent.isStopped = false;
         }
 
-        // Во время отхода смотрим на игрока
         RotateTowardsPlayer();
     }
 
     void HandleBerserkState(float distance)
     {
-        // В режиме бешенства просто отходим и стреляем часто
-
         if (distance < meleeDangerRange * 1.5f)
         {
-            // Отходим от слишком близкого игрока
             Vector3 retreatDir = (transform.position - playerTarget.position).normalized;
             Vector3 retreatPos = transform.position + retreatDir * berserkRetreatDistance;
 
@@ -312,7 +297,6 @@ public class EnemyController : MonoBehaviour
         }
         else if (distance > optimalShootingRange)
         {
-            // Приближаемся к игроку
             agent.isStopped = false;
 
             Vector3 directionToPlayer = (playerTarget.position - transform.position).normalized;
@@ -322,7 +306,6 @@ public class EnemyController : MonoBehaviour
         }
         else
         {
-            // На оптимальной дистанции - просто стоим и стреляем
             agent.isStopped = true;
         }
 
@@ -334,7 +317,7 @@ public class EnemyController : MonoBehaviour
         }
     }
 
-    void HandleStunnedState()
+    void HandleStunState()
     {
         agent.isStopped = true;
 
@@ -408,15 +391,12 @@ public class EnemyController : MonoBehaviour
         SetState(State.Retreating);
         stateEnterTime = Time.time;
 
-        // Сохраняем начальную дистанцию и направление отхода
         retreatStartDistance = Vector3.Distance(transform.position, playerTarget.position);
         retreatDirection = (transform.position - playerTarget.position).normalized;
         retreatDirection.y = 0;
 
-        // Вычисляем точку отхода
         Vector3 retreatPos = transform.position + retreatDirection * retreatDistance;
 
-        // Ищем валидную позицию на NavMesh
         NavMeshHit hit;
         if (NavMesh.SamplePosition(retreatPos, out hit, 10f, NavMesh.AllAreas))
         {
@@ -425,7 +405,6 @@ public class EnemyController : MonoBehaviour
         }
         else
         {
-            // Если не нашли, пытаемся найти ближайшую точку
             retreatPos = transform.position + retreatDirection * (retreatDistance * 0.5f);
             if (NavMesh.SamplePosition(retreatPos, out hit, 10f, NavMesh.AllAreas))
             {
@@ -440,7 +419,6 @@ public class EnemyController : MonoBehaviour
         SetState(State.Retreating);
         stateEnterTime = Time.time;
 
-        // Экстренный отход - быстрее и дальше
         retreatStartDistance = Vector3.Distance(transform.position, playerTarget.position);
         retreatDirection = (transform.position - playerTarget.position).normalized;
         retreatDirection.y = 0;
@@ -469,7 +447,6 @@ public class EnemyController : MonoBehaviour
 
     bool CheckForWall()
     {
-        // Проверяем, есть ли стена перед нами
         Vector3 rayDirection = retreatDirection != Vector3.zero ?
             retreatDirection : transform.forward;
 
@@ -513,7 +490,7 @@ public class EnemyController : MonoBehaviour
             animator.SetBool("IsWalking", false);
             animator.SetBool("IsShooting", false);
 
-            if (newState != State.Stunned)
+            if (newState != State.Stun)
             {
                 animator.SetBool("IsStunned", false);
             }
@@ -541,7 +518,7 @@ public class EnemyController : MonoBehaviour
 
         bool isMoving = agent.velocity.magnitude > 0.3f && !agent.isStopped;
 
-        if (currentState != State.Stunned && !animator.GetBool("IsShooting"))
+        if (currentState != State.Stun && !animator.GetBool("IsShooting"))
         {
             if (currentState == State.Retreating && isMoving)
             {
@@ -552,5 +529,9 @@ public class EnemyController : MonoBehaviour
                 animator.SetBool("IsWalking", isMoving);
             }
         }
+    }
+    public bool IsStunned
+    {
+        get { return isStunned; }
     }
 }

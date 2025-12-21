@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.XR.Interaction.Toolkit;
 
-public class RobotDodgeWithCooldown : MonoBehaviour
+public class RobotDodge : MonoBehaviour
 {
     [Header("Robot Reference")]
     [SerializeField] private Transform robotTransform;

@@ -4,36 +4,29 @@ using UnityEngine.AI;
 public class EnemyHealth : MonoBehaviour
 {
     [Header("Здоровье (баланс для 5-минутного боя)")]
-    [SerializeField] private float maxHealth = 1000f; // Больше здоровья для долгого боя
+    [SerializeField] private float maxHealth = 10000f; 
+    [SerializeField] private float damageReductionMultiplier = 0.8f; 
 
     private float currentHealth;
     private Animator animator;
     private bool isDead = false;
+    private bool isStunned = false;
 
     void Start()
     {
         currentHealth = maxHealth;
-
-        // Ищем аниматор в дочерних объектах
         animator = GetComponentInChildren<Animator>();
-
-        if (animator == null)
-        {
-            Debug.LogError("Animator не найден!");
-        }
-
-        Debug.Log($"Робот: здоровье {currentHealth}/{maxHealth}");
     }
-
     public void TakeDamage(float damage)
     {
-        if (isDead) return;
+        if (isDead || isStunned) return;
+        float healthPercentage = currentHealth / maxHealth;
+        float damageMultiplier = Mathf.Lerp(damageReductionMultiplier, 1f, healthPercentage);
+        float actualDamage = damage * damageMultiplier;
 
-        currentHealth -= damage;
-        Debug.Log($"Робот получил {damage} урона. Осталось: {currentHealth}");
+        currentHealth -= actualDamage;
 
-        // Анимация получения урона (только если урон значительный)
-        if (animator != null && damage > maxHealth * 0.05f) // 5% от макс. здоровья
+        if (animator != null && actualDamage > maxHealth * 0.02f)
         {
             animator.SetTrigger("TakeDamage");
         }
@@ -43,49 +36,50 @@ public class EnemyHealth : MonoBehaviour
             Die();
         }
     }
+    public void SetStunned(bool stunned)
+    {
+        isStunned = stunned;
+    }
 
+    public bool IsStunned()
+    {
+        return isStunned;
+    }
     void Die()
     {
         isDead = true;
-        Debug.Log("Робот уничтожен!");
 
-        // Анимация смерти
         if (animator != null)
         {
             animator.SetBool("IsDead", true);
             animator.SetBool("IsWalking", false);
             animator.SetBool("IsShooting", false);
+            animator.SetBool("IsStunned", false);
         }
-
-        // Отключаем всё
         var controller = GetComponent<EnemyController>();
         if (controller != null) controller.enabled = false;
-
         var agent = GetComponent<NavMeshAgent>();
         if (agent != null) agent.enabled = false;
-
         var shooter = GetComponent<EnemyShooter>();
         if (shooter != null) shooter.enabled = false;
-
         var collider = GetComponent<Collider>();
         if (collider != null) collider.enabled = false;
-
         var rb = GetComponent<Rigidbody>();
         if (rb != null)
         {
             rb.isKinematic = true;
             rb.useGravity = false;
         }
-
-        // Через 5 секунд можно уничтожить или оставить для анимации
-        // Destroy(gameObject, 5f);
+        GameManager gameManager = FindObjectOfType<GameManager>();
+        if (gameManager != null)
+        {
+            gameManager.WinGame();
+        }
     }
-
     public bool IsDead()
     {
         return isDead;
     }
-
     public float GetHealthPercentage()
     {
         return currentHealth / maxHealth;

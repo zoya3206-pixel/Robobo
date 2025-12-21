@@ -20,7 +20,9 @@ public class RobotUltimateController : MonoBehaviour
     [Header("Capsule Controller")]
     [SerializeField] private FutuRiftCapsuleController capsuleController;
 
-    private bool isUltimateActive = false;
+    [SerializeField] private EnemyHealth enemyHealth;
+
+    public bool isUltimateActive = false;
     private bool isRising = false;
     private bool isFalling = false;
     private bool isWaiting = false;
@@ -30,6 +32,18 @@ public class RobotUltimateController : MonoBehaviour
 
     private Vector3 startPosition;
     private Vector3 targetPosition;
+
+    private void Start()
+    {
+        if (enemyHealth == null)
+        {
+            GameObject enemy = GameObject.FindGameObjectWithTag("Enemy");
+            if (enemy != null)
+            {
+                enemyHealth = enemy.GetComponent<EnemyHealth>();
+            }
+        }
+    }
 
     private void OnEnable()
     {
@@ -71,7 +85,10 @@ public class RobotUltimateController : MonoBehaviour
     {
         if (!isUltimateActive)
         {
-            StartUltimate();
+            if (enemyHealth != null && enemyHealth.IsStunned())
+            {
+                StartUltimate();
+            }
         }
     }
 
@@ -82,7 +99,7 @@ public class RobotUltimateController : MonoBehaviour
         isFalling = false;
         isWaiting = false;
 
-        startPosition = robotTransform.position; 
+        startPosition = robotTransform.position;
         targetPosition = startPosition + Vector3.up * riseHeight;
 
         animationTimer = 0f;

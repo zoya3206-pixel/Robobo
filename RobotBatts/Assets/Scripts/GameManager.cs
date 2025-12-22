@@ -1,4 +1,4 @@
-using UnityEngine;
+п»їusing UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using UnityEngine.SceneManagement;
@@ -6,43 +6,27 @@ using UnityEngine.XR.Interaction.Toolkit;
 
 public class GameManager : MonoBehaviour
 {
-    [Header("Канвасы")]
     [SerializeField] private GameObject startGameCanvas;
     [SerializeField] private GameObject settingCanvas;
     [SerializeField] private GameObject winGameCanvas;
     [SerializeField] private GameObject youDiedCanvas;
-
-    [Header("XR Компоненты")]
-    [SerializeField] private GameObject xrOrigin;
+    [SerializeField] private GameObject TutorialCanvas;
+    [SerializeField] private Vector3 xrOrigin;
     [SerializeField] private GameObject enemy;
 
-    [Header("Компоненты движения XR")]
-    [SerializeField] private ActionBasedContinuousMoveProvider moveProvider;
-    [SerializeField] private ActionBasedContinuousTurnProvider turnProvider;
-    [SerializeField] private TeleportationProvider teleportationProvider;
-
-    [Header("Настройки звука")]
-    [SerializeField] private AudioSource musicSource;
-    [SerializeField] private Slider musicSlider;
-    [SerializeField] private TMP_Text musicText;
-
-    private float defaultMusicVolume = 0.5f;
+    public GameObject Colliders;
 
     void Start()
     {
+        xrOrigin = new Vector3(-11.8999996f, 3.00159979f, -0.600000024f);
+
         SetCanvasState(startGameCanvas, true);
         SetCanvasState(settingCanvas, false);
         SetCanvasState(winGameCanvas, false);
         SetCanvasState(youDiedCanvas, false);
-        SetVRMovement(false);
-        if (enemy != null)
-            enemy.SetActive(false);
-        if (musicSlider != null)
-        {
-            musicSlider.value = PlayerPrefs.GetFloat("MusicVolume", defaultMusicVolume);
-            musicSlider.onValueChanged.AddListener(ChangeMusicVolume);
-            ChangeMusicVolume(musicSlider.value);
-        }
+        SetCanvasState(TutorialCanvas, false);
+        enemy.SetActive(false);
+        Colliders.SetActive(true);
     }
 
     void SetCanvasState(GameObject canvas, bool state)
@@ -54,10 +38,16 @@ public class GameManager : MonoBehaviour
     public void StartGame()
     {
         SetCanvasState(startGameCanvas, false);
-        SetVRMovement(true);
+        SetCanvasState(TutorialCanvas, true);
+    }
+
+    public void CloseTutorial()
+    {
+        SetCanvasState(TutorialCanvas, false);
 
         if (enemy != null)
             enemy.SetActive(true);
+        Colliders.SetActive(false);
     }
 
     public void OpenSettings()
@@ -80,19 +70,21 @@ public class GameManager : MonoBehaviour
     private void ShowWinCanvas()
     {
         SetCanvasState(winGameCanvas, true);
-        SetVRMovement(false);
+        xrOrigin = new Vector3(-11.8999996f, 3.00159979f, -0.600000024f);
 
         if (enemy != null)
             enemy.SetActive(false);
+        Colliders.SetActive(true);
     }
 
     public void PlayerDied()
     {
         SetCanvasState(youDiedCanvas, true);
-        SetVRMovement(false);
+        xrOrigin = new Vector3(-11.8999996f, 3.00159979f, -0.600000024f);
 
         if (enemy != null)
             enemy.SetActive(false);
+        Colliders.SetActive(true);
     }
 
     public void BackFromWin()
@@ -107,30 +99,6 @@ public class GameManager : MonoBehaviour
         SetCanvasState(youDiedCanvas, false);
         SetCanvasState(startGameCanvas, true);
         RestartScene();
-    }
-
-    void SetVRMovement(bool canMove)
-    {
-        if (moveProvider != null)
-            moveProvider.enabled = canMove;
-
-        if (turnProvider != null)
-            turnProvider.enabled = canMove;
-
-        if (teleportationProvider != null)
-            teleportationProvider.enabled = canMove;
-    }
-
-    public void ChangeMusicVolume(float value)
-    {
-        if (musicSource != null)
-            musicSource.volume = value;
-
-        if (musicText != null)
-            musicText.text = $"music: {Mathf.RoundToInt(value * 100)}%";
-
-        PlayerPrefs.SetFloat("MusicVolume", value);
-        PlayerPrefs.Save();
     }
 
     void RestartScene()

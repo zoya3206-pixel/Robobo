@@ -7,9 +7,9 @@ public class EnemyShooter : MonoBehaviour
     public Transform firePoint; 
     public float bulletSpeed = 25f;
 
-    [Header("Урон (баланс для 5-минутного боя)")]
-    public float normalDamage = 5f;
-    public float berserkDamage = 5f;
+    [Header("Урон")]
+    public float normalDamage = 8f;
+    public float berserkDamage = 12f;
 
     [Header("Время жизни пуль")]
     public float normalBulletLife = 5f;

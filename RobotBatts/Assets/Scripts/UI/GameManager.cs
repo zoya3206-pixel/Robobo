@@ -1,8 +1,5 @@
 ﻿using UnityEngine;
-using UnityEngine.UI;
-using TMPro;
 using UnityEngine.SceneManagement;
-using UnityEngine.XR.Interaction.Toolkit;
 
 public class GameManager : MonoBehaviour
 {
@@ -11,8 +8,11 @@ public class GameManager : MonoBehaviour
     [SerializeField] private GameObject winGameCanvas;
     [SerializeField] private GameObject youDiedCanvas;
     [SerializeField] private GameObject TutorialCanvas;
+    public Transform XROOO;
     [SerializeField] private Vector3 xrOrigin;
     [SerializeField] private GameObject enemy;
+
+    [SerializeField] private PlayerHealth playerHealth;
 
     public GameObject Colliders;
 
@@ -27,6 +27,11 @@ public class GameManager : MonoBehaviour
         SetCanvasState(TutorialCanvas, false);
         enemy.SetActive(false);
         Colliders.SetActive(true);
+
+        if (playerHealth == null)
+        {
+            playerHealth = FindObjectOfType<PlayerHealth>();
+        }
     }
 
     void SetCanvasState(GameObject canvas, bool state)
@@ -44,10 +49,19 @@ public class GameManager : MonoBehaviour
     public void CloseTutorial()
     {
         SetCanvasState(TutorialCanvas, false);
-
-        if (enemy != null)
-            enemy.SetActive(true);
+        enemy.SetActive(true);
         Colliders.SetActive(false);
+
+        if (playerHealth != null)
+        {
+            playerHealth.ResetHealthAndGlass();
+        }
+
+        EnemyHealth enemyHealth = enemy.GetComponent<EnemyHealth>();
+        if (enemyHealth != null)
+        {
+            enemyHealth.ResetEnemy();
+        }
     }
 
     public void OpenSettings()
@@ -70,39 +84,53 @@ public class GameManager : MonoBehaviour
     private void ShowWinCanvas()
     {
         SetCanvasState(winGameCanvas, true);
-        xrOrigin = new Vector3(-11.8999996f, 3.00159979f, -0.600000024f);
-
-        if (enemy != null)
-            enemy.SetActive(false);
-        Colliders.SetActive(true);
+        XROOO.position = xrOrigin;
+        Invoke("OffEnemyOnC", 1f);
     }
 
     public void PlayerDied()
     {
         SetCanvasState(youDiedCanvas, true);
-        xrOrigin = new Vector3(-11.8999996f, 3.00159979f, -0.600000024f);
-
-        if (enemy != null)
-            enemy.SetActive(false);
-        Colliders.SetActive(true);
+        XROOO.position = xrOrigin;
+        Invoke("OffEnemyOnC", 1f);
     }
 
     public void BackFromWin()
     {
         SetCanvasState(winGameCanvas, false);
         SetCanvasState(startGameCanvas, true);
-        RestartScene();
+        ResetPlayerHealthAndGlass();
+        ResetEnemy();
     }
 
     public void BackFromDied()
     {
         SetCanvasState(youDiedCanvas, false);
         SetCanvasState(startGameCanvas, true);
-        RestartScene();
+        ResetPlayerHealthAndGlass();
+        ResetEnemy();
     }
 
-    void RestartScene()
+    private void ResetPlayerHealthAndGlass()
     {
-        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+        if (playerHealth != null)
+        {
+            playerHealth.ResetHealthAndGlass();
+        }
+    }
+
+    private void ResetEnemy()
+    {
+        EnemyHealth enemyHealth = enemy.GetComponent<EnemyHealth>();
+        if (enemyHealth != null)
+        {
+            enemyHealth.ResetEnemy();
+        }
+    }
+
+    public void OffEnemyOnC()
+    {
+        enemy.SetActive(false);
+        Colliders.SetActive(true);
     }
 }

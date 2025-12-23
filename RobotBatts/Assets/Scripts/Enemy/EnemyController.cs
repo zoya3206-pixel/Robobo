@@ -36,7 +36,7 @@ public class EnemyController : MonoBehaviour
     [SerializeField] private float aimingTime = 1f;
 
     [Header("Проверка стен")]
-    [SerializeField] private float wallCheckDistance = 1.5f;
+    [SerializeField] private float wallCheckDistance = 0.3f;
     [SerializeField] private LayerMask wallLayerMask = ~0;
 
     private NavMeshAgent agent;
@@ -447,14 +447,24 @@ public class EnemyController : MonoBehaviour
 
     bool CheckForWall()
     {
-        Vector3 rayDirection = retreatDirection != Vector3.zero ?
-            retreatDirection : transform.forward;
-
+        Vector3 checkPosition = transform.position + Vector3.up * 0.5f;
         RaycastHit hit;
-        if (Physics.Raycast(transform.position + Vector3.up * 0.5f,
-            rayDirection, out hit, wallCheckDistance, wallLayerMask))
+
+        if (retreatDirection != Vector3.zero)
         {
-            if (hit.collider.CompareTag("Wall"))
+            if (Physics.Raycast(checkPosition, retreatDirection, out hit, wallCheckDistance, wallLayerMask))
+            {
+                if (!hit.collider.CompareTag("Player") &&
+                    !hit.collider.CompareTag("EnemyBullet"))
+                {
+                    return true;
+                }
+            }
+            Vector3 rightCheck = Quaternion.Euler(0, 30, 0) * retreatDirection;
+            Vector3 leftCheck = Quaternion.Euler(0, -30, 0) * retreatDirection;
+
+            if (Physics.Raycast(checkPosition, rightCheck, wallCheckDistance * 0.8f, wallLayerMask) ||
+                Physics.Raycast(checkPosition, leftCheck, wallCheckDistance * 0.8f, wallLayerMask))
             {
                 return true;
             }

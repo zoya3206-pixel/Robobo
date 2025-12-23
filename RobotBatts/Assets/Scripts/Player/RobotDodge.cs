@@ -8,17 +8,17 @@ public class RobotDodge : MonoBehaviour
     [Header("Robot Reference")]
     [SerializeField] private Transform robotTransform;
 
+    [Header("Camera Reference (VR игрока)")]
+    [SerializeField] private Transform vrCamera;
+
     [Header("Input Actions")]
     [SerializeField] private InputActionReference leftDodgeAction;
     [SerializeField] private InputActionReference rightDodgeAction;
 
     [Header("Dodge Settings")]
-    [SerializeField] private float dodgeDuration = 0.3f;
-    [SerializeField] private float cooldown = 5f; 
-
-    [Header("Dodge Offsets")]
-    [SerializeField] private Vector3 leftDodgeOffset = new Vector3(-3f, 0f, 0f); 
-    [SerializeField] private Vector3 rightDodgeOffset = new Vector3(3f, 0f, 0f);
+    [SerializeField] private float dodgeDuration = 1f;
+    [SerializeField] private float cooldown = 5f;
+    [SerializeField] private float dodgeDistance = 8f;
 
     [Header("Capsule Controller")]
     [SerializeField] private FutuRiftCapsuleController capsuleController;
@@ -115,7 +115,7 @@ public class RobotDodge : MonoBehaviour
         if (leftCooldownTimer <= 0f)
         {
             DodgeLeft();
-            Invoke("capsuleController?.StopAllTilts()", 2f);
+            Invoke(nameof(StopAllTilts), 2f);
         }
     }
 
@@ -124,47 +124,66 @@ public class RobotDodge : MonoBehaviour
         if (rightCooldownTimer <= 0f)
         {
             DodgeRight();
-            Invoke("capsuleController?.StopAllTilts()", 2f);
+            Invoke(nameof(StopAllTilts), 2f);
         }
     }
 
     private void DodgeLeft()
     {
-        if (robotTransform == null) return;
+        if (robotTransform == null || vrCamera == null) return;
 
-        accumulatedOffset += leftDodgeOffset;
+        Vector3 leftDirection = -vrCamera.right;
+        leftDirection.y = 0;
+        leftDirection.Normalize();
 
-        currentTargetPosition = robotTransform.localPosition + leftDodgeOffset;
+        Vector3 dodgeOffset = leftDirection * dodgeDistance;
+
+        accumulatedOffset += dodgeOffset;
+        currentTargetPosition = robotTransform.localPosition + dodgeOffset;
 
         BhapticsLibrary.Play("dodgeleft");
         capsuleController?.TriggerDodgeLeftTilt();
 
         isDodging = true;
         dodgeTimer = 0f;
-
         leftCooldownTimer = cooldown;
+
+        Debug.Log($"Уворот влево. Направление: {leftDirection}, Смещение: {dodgeOffset}");
     }
 
     private void DodgeRight()
     {
-        if (robotTransform == null) return;
+        if (robotTransform == null || vrCamera == null) return;
 
-        accumulatedOffset += rightDodgeOffset;
+        Vector3 rightDirection = vrCamera.right;
+        rightDirection.y = 0;
+        rightDirection.Normalize();
 
-        currentTargetPosition = robotTransform.localPosition + rightDodgeOffset;
+        Vector3 dodgeOffset = rightDirection * dodgeDistance;
+
+        accumulatedOffset += dodgeOffset;
+        currentTargetPosition = robotTransform.localPosition + dodgeOffset;
 
         BhapticsLibrary.Play("dodgeright");
         capsuleController?.TriggerDodgeRightTilt();
 
         isDodging = true;
         dodgeTimer = 0f;
-
         rightCooldownTimer = cooldown;
+
+        Debug.Log($"Уворот вправо. Направление: {rightDirection}, Смещение: {dodgeOffset}");
     }
+
+    private void StopAllTilts()
+    {
+        capsuleController?.StopAllTilts();
+    }
+
     public Vector3 GetCurrentBasePosition()
     {
         return GetInitialPosition() + accumulatedOffset;
     }
+
     private Vector3 GetInitialPosition()
     {
         return new Vector3(1.97040009f, 3.00159979f, -18.0083008f);

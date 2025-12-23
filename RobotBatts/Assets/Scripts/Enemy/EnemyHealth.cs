@@ -3,9 +3,8 @@ using UnityEngine.AI;
 
 public class EnemyHealth : MonoBehaviour
 {
-    [Header("Здоровье (баланс для 5-минутного боя)")]
-    [SerializeField] private float maxHealth = 10000f; 
-    [SerializeField] private float damageReductionMultiplier = 0.8f; 
+    [SerializeField] private float maxHealth = 10000f;
+    [SerializeField] private float damageReductionMultiplier = 0.8f;
 
     private float currentHealth;
     private Animator animator;
@@ -17,9 +16,11 @@ public class EnemyHealth : MonoBehaviour
         currentHealth = maxHealth;
         animator = GetComponentInChildren<Animator>();
     }
+
     public void TakeDamage(float damage)
     {
         if (isDead || isStunned) return;
+
         float healthPercentage = currentHealth / maxHealth;
         float damageMultiplier = Mathf.Lerp(damageReductionMultiplier, 1f, healthPercentage);
         float actualDamage = damage * damageMultiplier;
@@ -36,6 +37,7 @@ public class EnemyHealth : MonoBehaviour
             Die();
         }
     }
+
     public void SetStunned(bool stunned)
     {
         isStunned = stunned;
@@ -45,6 +47,7 @@ public class EnemyHealth : MonoBehaviour
     {
         return isStunned;
     }
+
     void Die()
     {
         isDead = true;
@@ -56,30 +59,76 @@ public class EnemyHealth : MonoBehaviour
             animator.SetBool("IsShooting", false);
             animator.SetBool("IsStunned", false);
         }
+
         var controller = GetComponent<EnemyController>();
         if (controller != null) controller.enabled = false;
+
         var agent = GetComponent<NavMeshAgent>();
         if (agent != null) agent.enabled = false;
+
         var shooter = GetComponent<EnemyShooter>();
         if (shooter != null) shooter.enabled = false;
+
         var collider = GetComponent<Collider>();
         if (collider != null) collider.enabled = false;
+
         var rb = GetComponent<Rigidbody>();
         if (rb != null)
         {
             rb.isKinematic = true;
             rb.useGravity = false;
         }
+
         GameManager gameManager = FindObjectOfType<GameManager>();
         if (gameManager != null)
         {
             gameManager.WinGame();
         }
     }
+
+    public void ResetEnemy()
+    {
+        currentHealth = maxHealth;
+        isDead = false;
+        isStunned = false;
+
+        if (animator != null)
+        {
+            animator.SetBool("IsDead", false);
+            animator.SetBool("IsWalking", false);
+            animator.SetBool("IsShooting", false);
+            animator.SetBool("IsStunned", false);
+        }
+
+        var controller = GetComponent<EnemyController>();
+        if (controller != null) controller.enabled = true;
+
+        var agent = GetComponent<NavMeshAgent>();
+        if (agent != null)
+        {
+            agent.enabled = true;
+            agent.isStopped = false;
+        }
+
+        var shooter = GetComponent<EnemyShooter>();
+        if (shooter != null) shooter.enabled = true;
+
+        var collider = GetComponent<Collider>();
+        if (collider != null) collider.enabled = true;
+
+        var rb = GetComponent<Rigidbody>();
+        if (rb != null)
+        {
+            rb.isKinematic = false;
+            rb.useGravity = true;
+        }
+    }
+
     public bool IsDead()
     {
         return isDead;
     }
+
     public float GetHealthPercentage()
     {
         return currentHealth / maxHealth;

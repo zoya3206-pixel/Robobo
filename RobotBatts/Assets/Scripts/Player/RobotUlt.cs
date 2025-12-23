@@ -12,13 +12,20 @@ public class RobotUltimateController : MonoBehaviour
     [SerializeField] private InputActionProperty activateUltimateAction;
 
     [Header("Animation Settings")]
-    [SerializeField] private float riseTime = 2f;
-    [SerializeField] private float fallTime = 2f;
-    [SerializeField] private float waitTime = 1f;
+    [SerializeField] private float riseTime = 1.8f;        
+    [SerializeField] private float fallTime = 0.6f;       
+    [SerializeField] private float waitTime = 0.4f;        
     [SerializeField] private float riseHeight = 4.3584f;
+
+    [Header("Урон ультимейта")]
+    [SerializeField] private float ultimateDamage = 2500f;
 
     [Header("Capsule Controller")]
     [SerializeField] private FutuRiftCapsuleController capsuleController;
+
+    [Header("Свет в кабине")]
+    [SerializeField] private Light cabinLight;
+    private float originalLightIntensity;
 
     [SerializeField] private EnemyHealth enemyHealth;
 
@@ -42,6 +49,11 @@ public class RobotUltimateController : MonoBehaviour
             {
                 enemyHealth = enemy.GetComponent<EnemyHealth>();
             }
+        }
+
+        if (cabinLight != null)
+        {
+            originalLightIntensity = cabinLight.intensity;
         }
     }
 
@@ -104,14 +116,22 @@ public class RobotUltimateController : MonoBehaviour
 
         animationTimer = 0f;
         waitTimer = 0f;
+
+        if (cabinLight != null)
+        {
+            cabinLight.intensity = originalLightIntensity * 2f;
+        }
     }
 
     private void RiseAnimation()
     {
         animationTimer += Time.deltaTime;
+
         float progress = Mathf.Clamp01(animationTimer / riseTime);
 
-        robotTransform.position = Vector3.Lerp(startPosition, targetPosition, progress);
+        float easeOutProgress = 1f - Mathf.Pow(1f - progress, 2);
+
+        robotTransform.position = Vector3.Lerp(startPosition, targetPosition, easeOutProgress);
 
         if (animationTimer >= riseTime)
         {
@@ -142,17 +162,29 @@ public class RobotUltimateController : MonoBehaviour
     {
         animationTimer += Time.deltaTime;
         float progress = Mathf.Clamp01(animationTimer / fallTime);
-
-        robotTransform.position = Vector3.Lerp(targetPosition, startPosition, progress);
+        float easeInProgress = Mathf.Pow(progress, 3);
+        robotTransform.position = Vector3.Lerp(targetPosition, startPosition, easeInProgress);
 
         if (animationTimer >= fallTime)
         {
             robotTransform.position = startPosition;
+
+            if (enemyHealth != null && !enemyHealth.IsDead())
+            {
+                enemyHealth.TakeDamage(ultimateDamage);
+            }
+
+
+            if (cabinLight != null)
+            {
+                cabinLight.intensity = originalLightIntensity;
+            }
+
             isFalling = false;
             isUltimateActive = false;
             animationTimer = 0f;
             capsuleController?.TriggerFallingTilt();
-            Invoke(nameof(StopAllTilts), 2f);
+            Invoke(nameof(StopAllTilts), 1f);
         }
     }
 

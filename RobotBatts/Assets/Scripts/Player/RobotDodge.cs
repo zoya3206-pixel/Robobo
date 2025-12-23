@@ -147,8 +147,6 @@ public class RobotDodge : MonoBehaviour
         isDodging = true;
         dodgeTimer = 0f;
         leftCooldownTimer = cooldown;
-
-        Debug.Log($"Уворот влево. Направление: {leftDirection}, Смещение: {dodgeOffset}");
     }
 
     private void DodgeRight()
@@ -170,8 +168,6 @@ public class RobotDodge : MonoBehaviour
         isDodging = true;
         dodgeTimer = 0f;
         rightCooldownTimer = cooldown;
-
-        Debug.Log($"Уворот вправо. Направление: {rightDirection}, Смещение: {dodgeOffset}");
     }
 
     private void StopAllTilts()

@@ -1,4 +1,5 @@
 using UnityEngine;
+using Bhaptics.SDK2;
 
 public class PlayerHealth : MonoBehaviour
 {
@@ -11,6 +12,8 @@ public class PlayerHealth : MonoBehaviour
     [SerializeField] private float crackStage1Health = 150f;
     [SerializeField] private float crackStage2Health = 100f;
     [SerializeField] private float crackStage3Health = 50f;
+
+    [SerializeField] private FutuRiftCapsuleController capsuleController;
 
     private int currentCrackStage = 0;
     private bool isDead = false;
@@ -27,6 +30,8 @@ public class PlayerHealth : MonoBehaviour
 
         currentHealth -= damage;
         UpdateGlassCracks();
+        BhapticsLibrary.Play("enemyhit");
+        capsuleController?.TriggerEnemyHitTilt();
 
         if (currentHealth <= 0)
         {
